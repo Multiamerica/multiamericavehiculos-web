@@ -1,0 +1,83 @@
+@import "tailwindcss";
+@font-face {
+  font-family: 'Stockport';
+  src: url('/fonts/Stockport.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.font-stockport {
+  font-family: 'Stockport', sans-serif;
+}
+
+
+/* 🎨 Paleta de marca: Negro, Blanco y Naranja */
+:root {
+  --color-black: #000000;
+  --color-white: #ffffff;
+  --color-orange: #ea580c; /* naranja principal */
+  --color-orange-dark: #9a3412; /* naranja profundo */
+  --color-orange-soft: #f97316; /* tono cálido más claro */
+}
+
+/* Configuración de fuentes y tema global */
+@theme inline {
+  --font-sans: var(--font-geist-sans, "Inter", system-ui, sans-serif);
+  --font-mono: var(--font-geist-mono, "Courier New", monospace);
+}
+
+/* 🌙 Tema oscuro (modo predeterminado) */
+html.dark {
+  --background: var(--color-black);
+  --foreground: var(--color-white);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* 🌞 Tema claro (opcional si quieres soportarlo) */
+@media (prefers-color-scheme: light) {
+  html:not(.dark) {
+    --background: #ffffff;
+    --foreground: #111111;
+    background: var(--background);
+    color: var(--foreground);
+  }
+}
+
+/* 🧩 Estilos base */
+body {
+  @apply font-sans antialiased;
+  background: linear-gradient(to bottom right, #000000, #9a3412, #000000);
+  color: var(--color-white);
+  min-height: 100vh;
+}
+
+/* 🔗 Enlaces */
+a {
+  color: var(--color-orange-soft);
+  transition: color 0.2s ease-in-out;
+}
+a:hover {
+  color: var(--color-white);
+}
+
+/* ✴️ Borde y selección */
+::selection {
+  background-color: var(--color-orange);
+  color: var(--color-white);
+}
+
+/* ✨ Scrollbar personalizada (opcional) */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #111;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-orange-dark);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-orange-soft);
+}
