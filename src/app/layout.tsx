@@ -43,8 +43,12 @@ export default function RootLayout({
         <Footer />
 
         {/* 📊 Herramientas de Vercel */}
-        <SpeedInsights />
-        <Analytics />
+        {process.env.NODE_ENV === "production" && (
+          <>
+            <SpeedInsights />
+            <Analytics />
+          </>
+        )}
       </body>
     </html>
   );

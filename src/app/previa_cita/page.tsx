@@ -6,18 +6,22 @@ import OfertasCarousel from "@/components/OfertasCarousel";
 
 /**
  * 🚗 Página de Vehículos en Previa Cita
- * Muestra todos los vehículos con estado "PREVIA_CITA"
+ * Muestra los vehículos con estado "PREVIA CITA"
  */
 export default async function PreviaCitaPage() {
-  // 🔹 Obtener inventario completo
+  // 🔹 Obtener todo el inventario
   const data = await fetchInventory();
 
-  // 🔸 Filtrar solo los vehículos en PREVIA CITA
-  const previaCita = data.filter(
-    (v) => (v.estado ?? "").trim().toUpperCase() === "PREVIA CITA"
-  );
+  // 🔸 Normalizar texto de estado
+  const normalizar = (texto: unknown) =>
+    String(texto ?? "")
+      .trim()
+      .toUpperCase()
+      .replace(/[_-]/g, " "); // reemplaza "_" o "-" por espacio
 
-  // 🔸 Renderizar vista
+  // ✅ Filtrar vehículos en "PREVIA CITA" (acepta variaciones)
+  const previaCita = data.filter((v) => normalizar(v.estado).includes("PREVIA CITA"));
+
   return (
     <section className="max-w-7xl mx-auto px-3 sm:px-6 py-6 text-white">
       {/* 🔹 Bloque superior: título + carrusel */}
@@ -29,15 +33,22 @@ export default async function PreviaCitaPage() {
           </h1>
         </div>
 
-        {/* 🧩 Carrusel de ofertas (mismo estilo que “Disponibles”) */}
+        {/* 🧩 Carrusel igual que en “Disponibles” */}
         <div className="w-full md:w-[70%] flex justify-center md:justify-end">
           <OfertasCarousel />
         </div>
       </div>
 
-      {/* 🔸 Catálogo de vehículos en Previa Cita */}
+      {/* 🔸 Catálogo o mensaje de vacío */}
       <div className="w-full">
-        <Catalog data={previaCita} estado="PREVIA_CITA" />
+        {previaCita.length > 0 ? (
+          <Catalog data={previaCita} estado="PREVIA_CITA" />
+        ) : (
+          <div className="text-center py-16 text-neutral-400 text-lg">
+            🚗 No hay vehículos en <span className="text-orange-400 font-semibold">Previa Cita</span> por ahora.<br />
+            ¡Vuelve pronto para descubrir nuevas unidades!
+          </div>
+        )}
       </div>
     </section>
   );

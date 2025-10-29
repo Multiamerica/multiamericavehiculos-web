@@ -24,7 +24,7 @@ export default function Footer() {
             “Más que un concesionario“
           </h1>
           <p className="text-sm text-neutral-300 leading-6">
-            Más de 15 años de experiencia en compra, venta y consignación de vehículos usados en Caracas. Contamos con un amplio inventario de 150 vehículos en exhibición permanente y más de 60 asesores de ventas calificados para ofrecerte atención personalizada.
+            Más de 15 años de experiencia en compra, venta y consignación de vehículos usados en Caracas. Contamos con un amplio inventario de 150 vehículos en exhibición permanente y más de 80 asesores de ventas calificados para ofrecerte atención personalizada.
           </p>
           <p className="text-sm text-neutral-400 mt-3">RIF: J-40881100-6</p>
         </div>
@@ -136,6 +136,14 @@ export default function Footer() {
                 <FaInstagram size={20} />
               </a>
             </li>
+              {/* Soporte Técnico */}
+              <li className="mt-5">
+                <a
+                  href="/soporte_tecnico"
+                >
+                  🛠️Soporte Técnico
+              </a>
+              </li>
           </ul>
         </div>
       </div>
