@@ -1,193 +1,125 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { FaPaperPlane, FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
+export const dynamic = "force-dynamic";
 
-export default function TrabajaConNosotros() {
-  const [form, setForm] = useState({
-    nombre: "",
-    email: "",
-    telefono: "",
-    ciudad: "",
-    cv: null as File | null,
-  });
-  const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
+import { useEffect, useState } from "react";
+import { FaWhatsapp, FaEnvelope, FaTools } from "react-icons/fa";
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, files } = e.target;
-    if (name === "cv" && files) {
-      setForm({ ...form, cv: files[0] });
-    } else {
-      setForm({ ...form, [name]: value });
-    }
-  };
+export default function SoporteTecnicoPage() {
+  // 📧 Links según dispositivo
+  const MAILTO =
+    "mailto:multiamericavehiculos2025@gmail.com?subject=Soporte%20Técnico%20-%20MultiamericaVehículos&body=Hola%2C%20necesito%20ayuda%20con%20la%20página%20web.";
+  const GMAIL =
+    "https://mail.google.com/mail/?view=cm&fs=1&to=multiamericavehiculos2025@gmail.com&su=Soporte%20Técnico%20-%20MultiamericaVehículos&body=Hola%2C%20necesito%20ayuda%20con%20la%20página.";
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const [emailHref, setEmailHref] = useState(MAILTO);
+  const [emailTarget, setEmailTarget] = useState<string | undefined>(undefined);
 
-    if (!form.nombre || !form.email || !form.cv) {
-      alert("Por favor completa los campos obligatorios.");
-      return;
-    }
+  useEffect(() => {
+    // Detectar si es teléfono o PC
+    const ua =
+      navigator.userAgent ||
+      (navigator as any).vendor ||
+      (window as any).opera ||
+      "";
+    const isMobileUA = /android|iphone|ipad|ipod|iemobile|blackberry|opera mini|mobile/i.test(
+      ua.toLowerCase()
+    );
+    const isSmallScreen =
+      typeof window !== "undefined" &&
+      window.matchMedia &&
+      window.matchMedia("(max-width: 767px)").matches;
 
-    setStatus("sending");
+    const isPhone = isMobileUA || isSmallScreen;
 
-    try {
-      // 🧠 Convertir el archivo a Base64
-      const toBase64 = (file: File) =>
-        new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result));
-          reader.onerror = (err) => reject(err);
-          reader.readAsDataURL(file);
-        });
-
-      const dataUrl = await toBase64(form.cv);
-      const [meta, base64] = dataUrl.split(",");
-      const mimeMatch = meta.match(/^data:(.+);base64$/);
-      const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
-
-      const payload = {
-        nombre: form.nombre,
-        email: form.email,
-        telefono: form.telefono,
-        ciudad: form.ciudad,
-        cv: {
-          nombre: form.cv.name,
-          tipo: mimeType,
-          base64: base64,
-        },
-      };
-
-      // 🚀 Enviar al proxy interno
-      const res = await fetch("/api/enviar-cv", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const json = await res.json().catch(() => ({}));
-      if (json.success) {
-        console.log("✅ Archivo subido correctamente");
-        setStatus("success");
-      } else {
-        console.error("❌ Error:", json.error);
-        setStatus("error");
-      }
-
-      setForm({ nombre: "", email: "", telefono: "", ciudad: "", cv: null });
-    } catch (err) {
-      console.error(err);
-      setStatus("error");
-    }
-  };
+    // 📱 Teléfono → mailto | 💻 PC → Gmail web
+    const href = isPhone ? MAILTO : GMAIL;
+    setEmailHref(href);
+    setEmailTarget(href.startsWith("http") ? "_blank" : undefined);
+  }, []);
 
   return (
-    <section className="min-h-screen bg-gradient-to-b from-black via-neutral-950 to-black text-white py-20 px-6 flex items-center justify-center">
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="w-full max-w-3xl bg-neutral-900/70 border border-orange-800 rounded-2xl p-10 shadow-2xl backdrop-blur-sm"
-      >
-        <motion.h1
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="text-4xl md:text-5xl font-extrabold text-center text-orange-400 mb-6"
-        >
-          Trabaja con Nosotros
-        </motion.h1>
+    <section className="min-h-screen bg-black text-white flex items-center justify-center py-16 sm:py-20 px-4 sm:px-6">
+      <div className="w-full max-w-md sm:max-w-2xl bg-neutral-900/80 border border-orange-800 rounded-2xl shadow-lg p-6 sm:p-10 text-center">
+        {/* 🧰 Encabezado */}
+        <div className="flex flex-col items-center gap-3 mb-6">
+          <FaTools className="text-orange-500 text-4xl sm:text-5xl" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-orange-400">
+            Soporte Técnico
+          </h1>
+          <p className="text-neutral-300 text-sm sm:text-base leading-relaxed px-2 sm:px-6">
+            Estás en contacto con el equipo de soporte técnico de{" "}
+            <span className="text-orange-400 font-semibold">
+              MultiamericaVehículos
+            </span>
+            . Nuestro objetivo es ayudarte a resolver cualquier duda o
+            inconveniente relacionado con el uso de la página o el catálogo de
+            vehículos.
+          </p>
+        </div>
 
-        <p className="text-center text-neutral-300 text-lg mb-10 leading-relaxed">
-          En <span className="text-orange-300 font-semibold">Multiamerica Vehículos</span> creemos en el talento local.  
-          Completa el formulario y forma parte de nuestro equipo.
+        {/* 📞 Medios de contacto */}
+        <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 mt-10">
+          {/* WhatsApp */}
+          <div className="flex-1 bg-neutral-800/60 p-5 rounded-lg border border-neutral-700 hover:border-orange-700 transition-all duration-300">
+            <FaWhatsapp className="text-green-500 text-3xl mx-auto mb-2" />
+            <h2 className="text-lg font-semibold text-orange-400">WhatsApp</h2>
+            <p className="text-neutral-300 text-sm mt-1">
+              Escríbenos para asistencia directa o soporte inmediato.
+            </p>
+            <a
+              href="https://wa.me/584223820482?text=Hola%2C%20necesito%20ayuda%20con%20la%20página%20de%20MultiamericaVehículos."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-3 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-5 rounded-lg transition-all duration-300"
+            >
+              Contactar por WhatsApp
+            </a>
+          </div>
+
+          {/* Correo */}
+          <div className="flex-1 bg-neutral-800/60 p-5 rounded-lg border border-neutral-700 hover:border-orange-700 transition-all duration-300">
+            <FaEnvelope className="text-orange-400 text-3xl mx-auto mb-2" />
+            <h2 className="text-lg font-semibold text-orange-400">
+              Correo Electrónico
+            </h2>
+            <p className="text-neutral-300 text-sm mt-1">
+              Escríbenos detallando tu problema o sugerencia:
+            </p>
+            <a
+              href={emailHref}
+              target={emailTarget}
+              rel={emailTarget ? "noopener noreferrer" : undefined}
+              className="inline-block mt-3 bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-5 rounded-lg transition-all duration-300"
+            >
+              Enviar correo
+            </a>
+
+            {/* 📋 Mostrar y copiar correo */}
+            <div className="mt-3 text-xs text-neutral-400">
+              Correo de soporte:{" "}
+              <button
+                onClick={() =>
+                  navigator.clipboard.writeText(
+                    "multiamericavehiculos2025@gmail.com"
+                  )
+                }
+                className="text-orange-400 hover:text-orange-300 font-semibold"
+                title="Copiar correo"
+              >
+                multiamericavehiculos2025@gmail.com
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 🧾 Nota final */}
+        <p className="text-neutral-400 text-xs sm:text-sm mt-10 italic px-4">
+          Nuestro equipo responderá tu solicitud lo antes posible. Gracias por
+          confiar en{" "}
+          <span className="text-orange-400">MultiamericaVehículos</span>.
         </p>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Campos de texto */}
-          {[
-            { label: "Nombre y Apellido *", name: "nombre", type: "text", placeholder: "Ej: Gabriel García" },
-            { label: "Correo electrónico *", name: "email", type: "email", placeholder: "Ej: gabrielgarcia@gmail.com" },
-          ].map((input, i) => (
-            <motion.div key={i} whileFocus={{ scale: 1.02 }}>
-              <label className="block text-sm text-orange-300 mb-2">{input.label}</label>
-              <input
-                type={input.type}
-                name={input.name}
-                value={(form as any)[input.name]}
-                onChange={handleChange}
-                required
-                className="w-full bg-neutral-900/80 text-white p-3 rounded-lg border border-orange-800 focus:border-orange-500 focus:ring-1 focus:ring-orange-600 outline-none transition-all"
-                placeholder={input.placeholder}
-              />
-            </motion.div>
-          ))}
-
-          {/* Campos en grid */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm text-orange-300 mb-2">Número de contacto</label>
-              <input
-                type="tel"
-                name="telefono"
-                value={form.telefono}
-                onChange={handleChange}
-                className="w-full bg-neutral-900/80 text-white p-3 rounded-lg border border-orange-800 focus:border-orange-500 focus:ring-1 focus:ring-orange-600 outline-none transition-all"
-                placeholder="Ej: 0412 0000000"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-orange-300 mb-2">Ciudad</label>
-              <input
-                type="text"
-                name="ciudad"
-                value={form.ciudad}
-                onChange={handleChange}
-                className="w-full bg-neutral-900/80 text-white p-3 rounded-lg border border-orange-800 focus:border-orange-500 focus:ring-1 focus:ring-orange-600 outline-none transition-all"
-                placeholder="Ej: Caracas"
-              />
-            </div>
-          </div>
-
-          {/* Archivo */}
-          <div>
-            <label className="block text-sm text-orange-300 mb-2">Currículum (PDF o Word) *</label>
-            <input
-              type="file"
-              name="cv"
-              accept=".pdf,.doc,.docx"
-              onChange={handleChange}
-              required
-              className="w-full text-neutral-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg 
-                        file:border-0 file:text-sm file:font-semibold
-                        file:bg-orange-700 file:text-white hover:file:bg-orange-600 transition-colors"
-            />
-          </div>
-
-          {/* Botón */}
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            type="submit"
-            disabled={status === "sending"}
-            className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg font-semibold transition-all
-            ${
-              status === "success"
-                ? "bg-green-600 hover:bg-green-500"
-                : status === "error"
-                ? "bg-red-600 hover:bg-red-500"
-                : "bg-orange-600 hover:bg-orange-500"
-            }`}
-          >
-            {status === "sending" && <><FaPaperPlane className="animate-pulse" /> Enviando...</>}
-            {status === "success" && <><FaCheckCircle /> Enviado correctamente</>}
-            {status === "error" && <><FaExclamationTriangle /> Error al enviar</>}
-            {status === "idle" && <><FaPaperPlane /> Enviar solicitud</>}
-          </motion.button>
-        </form>
-      </motion.div>
+      </div>
     </section>
   );
 }

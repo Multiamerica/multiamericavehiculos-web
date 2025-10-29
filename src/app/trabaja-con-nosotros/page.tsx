@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { FaPaperPlane, FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
@@ -12,7 +13,6 @@ export default function TrabajaConNosotros() {
     cv: null as File | null,
   });
   const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
-  const [message, setMessage] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, files } = e.target;
@@ -32,10 +32,9 @@ export default function TrabajaConNosotros() {
     }
 
     setStatus("sending");
-    setMessage("");
 
     try {
-      // 🧠 Convertir archivo a Base64
+      // 🧠 Convertir el archivo a Base64
       const toBase64 = (file: File) =>
         new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
@@ -49,7 +48,6 @@ export default function TrabajaConNosotros() {
       const mimeMatch = meta.match(/^data:(.+);base64$/);
       const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
 
-      // 🔸 Armar JSON
       const payload = {
         nombre: form.nombre,
         email: form.email,
@@ -62,33 +60,26 @@ export default function TrabajaConNosotros() {
         },
       };
 
-      // 🚀 Enviar al Apps Script
-      const res = await fetch(
-        "https://script.google.com/macros/s/AKfycbytpM2PMuTEKDX9tS4YqUHoDc8Kngl8M3xS6mioApBHTNKeD5CbpwSv9BnEAO_38Z9tsw/exec",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
+      // 🚀 Enviar al proxy interno
+      const res = await fetch("/api/enviar-cv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
       const json = await res.json().catch(() => ({}));
-
       if (json.success) {
-        console.log("✅ Archivo subido:", json.link);
+        console.log("✅ Archivo subido correctamente");
         setStatus("success");
-        setMessage("✅ Archivo subido correctamente al Drive");
       } else {
         console.error("❌ Error:", json.error);
         setStatus("error");
-        setMessage("❌ Hubo un error al subir el archivo.");
       }
 
       setForm({ nombre: "", email: "", telefono: "", ciudad: "", cv: null });
     } catch (err) {
       console.error(err);
       setStatus("error");
-      setMessage("❌ Error inesperado al enviar el formulario.");
     }
   };
 
@@ -100,7 +91,6 @@ export default function TrabajaConNosotros() {
         transition={{ duration: 0.8 }}
         className="w-full max-w-3xl bg-neutral-900/70 border border-orange-800 rounded-2xl p-10 shadow-2xl backdrop-blur-sm"
       >
-        {/* 🔹 Título */}
         <motion.h1
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -115,9 +105,8 @@ export default function TrabajaConNosotros() {
           Completa el formulario y forma parte de nuestro equipo.
         </p>
 
-        {/* 🔸 Formulario */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Campos básicos */}
+          {/* Campos de texto */}
           {[
             { label: "Nombre y Apellido *", name: "nombre", type: "text", placeholder: "Ej: Gabriel García" },
             { label: "Correo electrónico *", name: "email", type: "email", placeholder: "Ej: gabrielgarcia@gmail.com" },
@@ -136,7 +125,7 @@ export default function TrabajaConNosotros() {
             </motion.div>
           ))}
 
-          {/* Teléfono y ciudad */}
+          {/* Campos en grid */}
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm text-orange-300 mb-2">Número de contacto</label>
@@ -162,7 +151,7 @@ export default function TrabajaConNosotros() {
             </div>
           </div>
 
-          {/* Subir archivo */}
+          {/* Archivo */}
           <div>
             <label className="block text-sm text-orange-300 mb-2">Currículum (PDF o Word) *</label>
             <input
@@ -177,7 +166,7 @@ export default function TrabajaConNosotros() {
             />
           </div>
 
-          {/* Botón de envío */}
+          {/* Botón */}
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
@@ -192,38 +181,11 @@ export default function TrabajaConNosotros() {
                 : "bg-orange-600 hover:bg-orange-500"
             }`}
           >
-            {status === "sending" && (
-              <>
-                <FaPaperPlane className="animate-pulse" /> Enviando...
-              </>
-            )}
-            {status === "success" && (
-              <>
-                <FaCheckCircle /> Enviado correctamente
-              </>
-            )}
-            {status === "error" && (
-              <>
-                <FaExclamationTriangle /> Error al enviar
-              </>
-            )}
-            {status === "idle" && (
-              <>
-                <FaPaperPlane /> Enviar solicitud
-              </>
-            )}
+            {status === "sending" && <><FaPaperPlane className="animate-pulse" /> Enviando...</>}
+            {status === "success" && <><FaCheckCircle /> Enviado correctamente</>}
+            {status === "error" && <><FaExclamationTriangle /> Error al enviar</>}
+            {status === "idle" && <><FaPaperPlane /> Enviar solicitud</>}
           </motion.button>
-
-          {/* Mensaje de confirmación */}
-          {message && (
-            <p
-              className={`text-center mt-4 ${
-                status === "success" ? "text-green-400" : "text-red-400"
-              }`}
-            >
-              {message}
-            </p>
-          )}
         </form>
       </motion.div>
     </section>
