@@ -21,7 +21,28 @@ interface Opcion {
 }
 
 const OPCIONES: Opcion[] = [
+//  { label: "Messenger", roles: ["Admin"], href: "/Usuarios/Base/Messenger" },
+//  { label: "Chat", roles: "Todos", href: "/Usuarios/Base/Chat" },
+//  { label: "Ventas", roles: "Todos", href: "/Usuarios/Base/Ventas" },
+//  { label: "Vendedor del Mes", roles: "Todos", href: "/Usuarios/Base/VendedorMes" },
+//  { label: "Calendario", roles: "Todos", href: "/Usuarios/Base/Calendario" },
+//  { label: "Lista Personalizada", roles: "Todos", href: "/Usuarios/Base/ListaPersonalizada" },
   { label: "Recorrido", roles: "Todos", href: "/Usuarios/Base/Recorridos" },
+//  { label: "Mis Vehículos", roles: ["Asesor","Comisionista","Gerente","Gerente de Guardia","Supervisor"], href: "/Usuarios/Base/MisVehiculos" },
+//  { label: "Mis Ventas", roles: ["Asesor","Comisionista","Gerente","Gerente de Guardia","Supervisor"], href: "/Usuarios/Base/MisVentas" },
+//  { label: "Mis Clientes", roles: ["Asesor","Comisionista","Gerente","Gerente de Guardia","Supervisor"], href: "/Usuarios/Base/MisClientes" },
+//  { label: "Mis Asesores", roles: ["Gerente","Gerente de Guardia"], href: "/Usuarios/Base/MisAsesores" },
+//  { label: "Vehículos de mis Asesores", roles: ["Gerente","Gerente de Guardia"], href: "/Usuarios/Base/VehiculosAsesores" },
+//  { label: "Requerimientos", roles: ["Comisionista","Gerente","Supervisor","Gerente de Guardia"], href: "/Usuarios/Base/Requerimientos" },
+//  { label: "Trabajadores", roles: ["Gerente","Supervisor","Gerente de Guardia"], href: "/Usuarios/Base/Trabajadores" },
+//  { label: "Panel de Publicidad", roles: ["Marketing"], href: "/Usuarios/Base/PanelPublicidad" },
+//  { label: "Campaña", roles: ["Marketing"], href: "/Usuarios/Base/Campania" },
+//  { label: "Análisis de Alcance", roles: ["Marketing"], href: "/Usuarios/Base/AnalisisAlcance" },
+//  { label: "Estadísticas", roles: ["Marketing"], href: "/Usuarios/Base/Estadisticas" },
+//  { label: "Análisis del Mercado", roles: ["Asesor","Comisionista","Gerente","Gerente de Guardia","Supervisor","Marketing"], href: "/Usuarios/Base/AnalisisMercado" },
+//  { label: "Reportes de Vehículos", roles: ["Supervisor","Gerente","Gerente de Guardia","Operaciones"], href: "/Usuarios/Base/ReportesVehiculos" },
+//  { label: "Reportes de Mensajes", roles: ["Supervisor","Gerente","Gerente de Guardia"], href: "/Usuarios/Base/ReportesMensajes" },
+//  { label: "Reportes de Publicaciones", roles: ["Supervisor","Gerente","Gerente de Guardia"], href: "/Usuarios/Base/ReportesPublicaciones" },
 ];
 
 interface Props {
