@@ -7,14 +7,26 @@ import { useState, useCallback } from "react";
 import { Vehicle } from "@/types/vehicle";
 import { pickPortada } from "@/lib/portada";
 
-function formatMoney(n?: number, cur?: string) {
-  if (n == null) return "";
-  return `${cur ?? ""} ${new Intl.NumberFormat("es-VE").format(n)}`.trim();
+/** 🔹 Formatear monto con símbolo de moneda */
+function formatMoney(valor?: string | number, moneda?: string): string {
+  if (valor == null || valor === "") return "—";
+
+  const numero = Number(valor);
+  if (isNaN(numero)) return String(valor);
+
+  const simbolo = moneda?.trim() || "$";
+  return `${new Intl.NumberFormat("es-VE", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(numero)} ${simbolo}`;
 }
 
-function formatKm(n?: number) {
-  if (n == null) return "";
-  return `${new Intl.NumberFormat("es-VE").format(n)} km`;
+/** 🔹 Formatear kilometraje */
+function formatKm(n?: string | number): string {
+  if (n == null || n === "") return "";
+  const numero = Number(n);
+  if (isNaN(numero)) return String(n);
+  return `${new Intl.NumberFormat("es-VE").format(numero)} km`;
 }
 
 export default function VehicleCard({ v }: { v: Vehicle }) {
@@ -66,16 +78,16 @@ export default function VehicleCard({ v }: { v: Vehicle }) {
           {v.marca} {v.modelo} {v.anio}
         </h3>
 
-        <p className="text-sm text-orange-300">
-          {v.vis_precio && v.precio_num != null ? (
+        <p className="text-sm text-orange-300 flex flex-wrap items-center gap-1">
+          {v.vis_precio && v.precio_num != null && (
             <span className="text-orange-400 font-medium">
               {formatMoney(v.precio_num, v.moneda)}
             </span>
-          ) : null}
+          )}
 
-          {v.km_num != null ? (
-            <span className="text-neutral-300"> • {formatKm(v.km_num)}</span>
-          ) : null}
+          {v.km_num != null && (
+            <span className="text-neutral-300">• {formatKm(v.km_num)}</span>
+          )}
         </p>
 
         <p className="mt-3 text-orange-400 font-medium text-sm">

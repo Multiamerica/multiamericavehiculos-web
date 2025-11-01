@@ -96,10 +96,8 @@ export default function CatalogUsuariosPrevia({ data, estado }: Props) {
       if (marca && v.marca !== marca) return false;
       if (modelo && v.modelo !== modelo) return false;
       if (v.anio < anioMin || v.anio > anioMax) return false;
-      if (precioMin !== "" && (v.precio_num ?? Infinity) < Number(precioMin))
-        return false;
-      if (precioMax !== "" && (v.precio_num ?? 0) > Number(precioMax))
-        return false;
+      if (precioMin !== "" && Number(v.precio_num ?? 0) < Number(precioMin)) return false;
+      if (precioMax !== "" && Number(v.precio_num ?? 0) > Number(precioMax)) return false;
       if (carroceria && v.carroceria !== carroceria) return false;
       if (transmision && v.transmision !== transmision) return false;
       if (traccion && v.traccion !== traccion) return false;
