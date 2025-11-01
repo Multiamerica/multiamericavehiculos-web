@@ -6,6 +6,7 @@ import { fetchInventory } from "@/lib/api";
 import TwoPaneGallery from "@/components/TwoPaneGallery";
 import HeaderUsuarios from "@/components/HeaderUsuarios";
 import { Vehicle } from "@/types/vehicle";
+import EditableFichaTecnica from "@/components/EditableFichaTecnica";
 
 /** 🔹 Formatear números (precio, km, etc.) */
 function fmtNum(n?: number, suf: string = ""): string {
@@ -17,48 +18,110 @@ function fmtNum(n?: number, suf: string = ""): string {
   }
 }
 
+/** 🔸 Página de Detalle del Vehículo (Interna para empleados) */
 export default function VehicleDetailEmpleado() {
   const params = useParams();
-  const vehiculo_id = params?.vehiculo_id as string; // ✅ tipado seguro
+  const vehiculo_id = params?.vehiculo_id as string;
   const router = useRouter();
 
   const [vehiculo, setVehiculo] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
+  const [usuario, setUsuario] = useState<any>(null);
+  const [rol, setRol] = useState("Invitado");
+  const [verificandoSesion, setVerificandoSesion] = useState(true);
 
-  /** 🔐 Verificar sesión del usuario */
+  /** 🔐 Verificar sesión y rol */
   useEffect(() => {
-    const user = localStorage.getItem("usuario");
-    if (!user) {
-      router.push("/Login/login.html");
-      return;
-    }
+    const verificarSesion = async () => {
+      try {
+        const saved = localStorage.getItem("usuario");
+        if (!saved) {
+          router.push("/Login/login.html");
+          return;
+        }
+
+        const parsed = JSON.parse(saved);
+        setUsuario(parsed);
+
+        const rolDetectado =
+          parsed.rol || parsed.rango || parsed.Rango || "Invitado";
+        setRol(rolDetectado);
+
+        localStorage.setItem(
+          "usuario",
+          JSON.stringify({ ...parsed, rol: rolDetectado })
+        );
+      } catch (err) {
+        console.error("⚠️ Error verificando sesión:", err);
+        setRol("Invitado");
+      } finally {
+        setVerificandoSesion(false);
+      }
+    };
+
+    verificarSesion();
   }, [router]);
 
-  /** 🚗 Cargar vehículo específico */
+  /** 🚗 Cargar vehículo desde el inventario */
   useEffect(() => {
     const loadVehiculo = async () => {
       try {
         const data = await fetchInventory();
-        const v = data.find((x) => String(x.vehiculo_id) === String(vehiculo_id));
-        if (!v) return;
+        const v =
+          data.find(
+            (x) =>
+              String(x.vehiculo_id) === String(vehiculo_id) ||
+              String(x.ID) === String(vehiculo_id) ||
+              String(x.id) === String(vehiculo_id)
+          ) || null;
 
-        // Mostrar todo sin restricciones
-        setVehiculo({
+        if (!v) {
+          console.warn("❌ Vehículo no encontrado en inventario.");
+          router.push("/Usuarios");
+          return;
+        }
+
+        // 🧠 Normalizar campos
+        const normalizado: Vehicle = {
           ...v,
-          vis_precio: true,
-          vis_duenos: true,
-        });
+          vehiculo_id: v.vehiculo_id || v.ID || v.id || vehiculo_id,
+          estado: v.publicar || v.estado || "",
+        };
+
+        // 🚫 Bloquear visualización de "No Disponible"
+        const estado = String(normalizado.estado ?? "")
+          .normalize("NFD")
+          .replace(/_/g, " ")
+          .toLowerCase()
+          .trim();
+
+        const bloqueado =
+          !estado ||
+          estado.includes("no disponible") ||
+          estado.includes("nodisponible") ||
+          estado.includes("no_disponible") ||
+          estado.includes("sin publicar") ||
+          estado === "";
+
+        if (bloqueado) {
+          alert("🚫 Este vehículo no está disponible para visualización.");
+          router.push("/");
+          return;
+        }
+
+        setVehiculo(normalizado);
       } catch (err) {
-        console.error("Error al cargar el vehículo:", err);
+        console.error("⚠️ Error cargando vehículo:", err);
       } finally {
         setLoading(false);
       }
     };
 
     loadVehiculo();
-  }, [vehiculo_id]);
+  }, [vehiculo_id, router]);
 
-  if (loading) {
+  /** 🕓 Cargando */
+  if (verificandoSesion || loading) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-black text-orange-300">
         Cargando información del vehículo...
@@ -66,6 +129,7 @@ export default function VehicleDetailEmpleado() {
     );
   }
 
+  /** 🚫 Si no hay vehículo */
   if (!vehiculo) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-black text-orange-300">
@@ -74,106 +138,72 @@ export default function VehicleDetailEmpleado() {
     );
   }
 
+  /** 🧩 Estado del vehículo */
   const v = vehiculo;
-  const estado = (v.estado ?? "").toLowerCase();
-  const disponible = estado === "disponible";
-  const estadoTexto = disponible ? "Disponible" : "Previa Cita";
+  const estado = (v.estado || v.publicar || "").toString().toLowerCase().trim();
 
+  const disponible = estado.includes("disponible");
+  const estadoTexto = estado.includes("reservado")
+    ? "Reservado"
+    : estado.includes("disponible")
+    ? "Disponible"
+    : estado.includes("previa")
+    ? "Previa Cita"
+    : "No Disponible";
+
+  /** 🎨 Color del recuadro según estado */
+  const colorEstado =
+    estado.includes("reservado")
+      ? "bg-yellow-600 border-yellow-400"
+      : estado.includes("disponible")
+      ? "bg-green-700 border-green-400"
+      : estado.includes("previa")
+      ? "bg-orange-600 border-orange-400"
+      : "bg-red-700 border-red-400";
+
+  /** 🧾 Render principal */
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-orange-900 to-black pb-12">
       <HeaderUsuarios />
 
-    {/* 🔙 Botón para volver al panel */}
-    <div className="flex items-start max-w-7xl mx-auto px-4 pt-2">
-      <button
-        onClick={() => router.push("/Usuarios")}
-        className="px-6 py-1 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg shadow-md transition"
-      >
-        ← Volver
-      </button>
-    </div>
+      {/* 🔙 Botón volver */}
+      <div className="flex items-start max-w-7xl mx-auto px-4 pt-4">
+        <button
+          onClick={() => router.push("/Usuarios")}
+          className="px-6 py-1 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg shadow-md transition"
+        >
+          ← Volver
+        </button>
+      </div>
 
-
+      {/* 🧩 Contenido principal */}
       <div className="grid gap-8 lg:grid-cols-2 items-start max-w-7xl mx-auto px-4 pt-2">
         {/* 📸 Galería */}
         <section className="relative">
           <div
-            className={`absolute top-4 left-4 z-10 px-4 py-2 rounded-lg border text-white font-semibold shadow-lg ${
-              disponible
-                ? "bg-orange-600 border-orange-400"
-                : "bg-neutral-700 border-neutral-500"
-            }`}
+            className={`absolute top-4 left-4 z-10 px-4 py-2 rounded-lg border text-white font-semibold shadow-lg ${colorEstado}`}
           >
             {estadoTexto}
           </div>
           <TwoPaneGallery images={v.imagenes} />
         </section>
 
-        {/* 📋 Información completa */}
+        {/* 📋 Información */}
         <div className="space-y-6">
-          <div>
-            <h1 className="text-4xl md:text-3xl font-extrabold text-white leading-tight">
-              {v.marca} {v.modelo} {v.version ? `${v.version} ` : ""} {v.anio}
-            </h1>
+          <h1 className="text-4xl md:text-3xl font-extrabold text-white leading-tight">
+            {v.marca} {v.modelo} {v.version ? `${v.version} ` : ""} {v.anio}
+          </h1>
 
-            {v.precio_num != null && (
-              <p className="mt-1 text-orange-400 text-2xl font-semibold">
-                {`${v.moneda ?? "USD"} ${fmtNum(v.precio_num!, "")}`.trim()}
-              </p>
-            )}
-          </div>
-
-          {/* Ficha técnica ampliada */}
-          <div className="space-y-3 p-6 rounded-lg border border-orange-700 bg-black/70">
-            <h2 className="text-2xl font-semibold text-white pb-2 border-b border-orange-700">
-              FICHA TÉCNICA COMPLETA
-            </h2>
-
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-base">
-              <Info label="Carrocería" value={v.carroseria} />
-              <Info label="Marca" value={v.marca} />
-              <Info label="Modelo" value={v.modelo} />
-              <Info label="Versión" value={v.version} />
-              <Info label="Año" value={v.anio} />
-              <Info label="Kilometraje" value={fmtNum(v.km_num, " km")} />
-              <Info label="Transmisión" value={v.transmision} />
-              <Info label="Tracción" value={v.traccion} />
-              <Info label="Color" value={v.color} />
-              <Info label="Motor" value={v.motor} />
-              <Info label="Dueños" value={v.duenos} />
-              <Info label="A/A" value={v.aa ? "Sí" : "No"} />
-              <Info label="Tapicería" value={v.tapiceria} />
-              <Info label="Llaves" value={v.llaves} />
-              <Info label="#Puertas" value={v.puertas} />
-              <Info label="Gerente" value={v.gerente || (v as any).Gerente || "No asignado"} />
-              <Info label="Asesor" value={v.asesor || (v as any).Asesor || "No asignado"} />
-              <Info label="Ubicación" value={v.ubicacion} />
-            </div>
-          </div>
-          {/* Descripción General */}
-          {v.descripcion && (
-            <div className="p-6 rounded-xl border border-orange-700 bg-gradient-to-br from-black/70 via-neutral-900/60 to-black/70 shadow-md">
-              <h2 className="text-2xl font-bold text-orange-400 mb-3 border-b border-orange-700 pb-2">
-                Descripción General
-              </h2>
-              <p className="text-base leading-relaxed text-neutral-100 whitespace-pre-line">
-                {v.descripcion}
-              </p>
-            </div>
-          )}
+          {/* 🧾 Ficha técnica editable */}
+          <EditableFichaTecnica
+            vehiculo={v}
+            rolUsuario={rol}
+            nombreUsuario={
+              usuario?.nombreEjecutivo || usuario?.nombre || "Desconocido"
+            }
+          />
         </div>
       </div>
     </div>
-  );
-}
-
-/** 🔹 Componente auxiliar */
-function Info({ label, value }: { label: string; value?: string | number | boolean | null }) {
-  if (!value && value !== 0) return null;
-  return (
-    <p>
-      <b className="text-orange-300">{label}:</b>{" "}
-      <span className="text-white">{String(value)}</span>
-    </p>
   );
 }

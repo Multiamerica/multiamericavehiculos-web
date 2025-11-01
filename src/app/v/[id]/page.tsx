@@ -1,6 +1,7 @@
+import { redirect } from "next/navigation";
 import { fetchInventory } from "@/lib/api";
 import TwoPaneGallery from "@/components/TwoPaneGallery";
-import BotonesVehiculo from "@/components/BotonesVehiculo"; 
+import BotonesVehiculo from "@/components/BotonesVehiculo";
 
 // Función segura para formatear números (kilometraje, precios, etc.)
 function fmtNum(n?: number, suf: string = ""): string {
@@ -17,17 +18,53 @@ export default async function VehicleDetail({ params }: any) {
   const data = await fetchInventory();
   const v = data.find((x) => String(x.vehiculo_id) === String(id));
 
+  // 🚫 Si no existe el vehículo, redirigir
   if (!v) {
-    return <div className="text-white">Vehículo no encontrado.</div>;
+    redirect("/");
+  }
+
+  // 🧩 Normalizar estado / publicar
+  const estado = String(v.publicar || v.estado || "")
+    .normalize("NFD")
+    .replace(/_/g, " ")
+    .trim()
+    .toLowerCase();
+
+  // 🚫 Bloquear vehículos no disponibles o sin estado
+  const bloqueado =
+    !estado ||
+    estado.includes("no disponible") ||
+    estado.includes("nodisponible") ||
+    estado.includes("no_disponible") ||
+    estado.includes("sin publicar") ||
+    estado === "";
+
+  if (bloqueado) {
+    redirect("/");
   }
 
   const showPrecio = Boolean(v.vis_precio && v.precio_num != null);
   const showDuenos = Boolean(v.vis_duenos && (v.duenos ?? "") !== "");
 
-  // Estado / Disponibilidad
-  const estado = (v.estado ?? "").toLowerCase();
-  const disponible = estado === "disponible";
-  const estadoTexto = disponible ? "Disponible" : "Previa Cita";
+  // Estado visible
+  const disponible = estado.includes("disponible");
+  const previaCita = estado.includes("previa");
+  const reservado = estado.includes("reservado");
+
+  // 🟢 Mostrar "Reservado" como "Disponible" en página pública
+  const estadoTexto =
+    previaCita
+      ? "Previa Cita"
+      : (disponible || reservado)
+      ? "Disponible"
+      : "No Disponible";
+
+  const colorEstado =
+    previaCita
+      ? "bg-orange-600 border-orange-400"
+      : (disponible || reservado)
+      ? "bg-green-700 border-green-400"
+      : "bg-red-700 border-red-400";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-orange-900 to-black py-8">
@@ -35,11 +72,7 @@ export default async function VehicleDetail({ params }: any) {
         {/* Columna Izquierda: Galería */}
         <section className="relative">
           <div
-            className={`absolute top-4 left-4 z-10 px-4 py-2 rounded-lg border text-white font-semibold shadow-lg ${
-              disponible
-                ? "bg-orange-600 border-orange-400"
-                : "bg-neutral-700 border-neutral-500"
-            }`}
+            className={`absolute top-4 left-4 z-10 px-4 py-2 rounded-lg border text-white font-semibold shadow-lg ${colorEstado}`}
           >
             {estadoTexto}
           </div>
@@ -96,7 +129,7 @@ export default async function VehicleDetail({ params }: any) {
                   <span className="text-white">{v.transmision}</span>
                 </p>
               )}
-              {v.traccion?.toLowerCase() === "4x4" && (
+              {v.traccion && (
                 <p>
                   <b className="text-orange-300">Tracción:</b>{" "}
                   <span className="text-white">{v.traccion}</span>
@@ -164,6 +197,7 @@ export default async function VehicleDetail({ params }: any) {
               <p className="text-base leading-7 text-white">{v.descripcion}</p>
             </div>
           )}
+
           <BotonesVehiculo v={v} />
         </div>
       </div>

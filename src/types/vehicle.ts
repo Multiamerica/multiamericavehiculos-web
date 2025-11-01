@@ -3,7 +3,7 @@ export type Vehicle = {
   vehiculo_id: string;
 
   /** Estado actual del vehículo */
-  estado: "DISPONIBLE" | "PREVIA_CITA" | "NO_DISPONIBLE";
+  estado:  "DISPONIBLE" | "PREVIA_CITA" | "RESERVADO" | "NO_DISPONIBLE";
 
   // ===========================
   // 📌 Datos básicos
@@ -27,14 +27,14 @@ export type Vehicle = {
   // ===========================
   precio_num?: number;
   moneda?: string;
-  km_num?: number;
+  km_num?: number | null;
   color?: string;
   transmision?: string;
   traccion?: string;
-  carroseria?: string;
+  carroceria?: string;
   tapiceria?: string;
   motor?: string;
-  aa?: boolean;
+  aa?: string;
   llaves?: string;
   duenos?: string | number;
   puertas?: string;

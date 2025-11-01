@@ -38,29 +38,22 @@ function normalizeImages(r: Json): string[] {
 
   return imgs.map((url) => {
     if (typeof url !== "string") return "";
-
     const u = url.trim();
 
-    // ✅ Caso: Imgur directo (i.imgur.com)
+    // ✅ Caso: Imgur directo
     if (u.includes("i.imgur.com")) return u;
 
     // ✅ Caso: Página de Imgur (imgur.com/<id>)
     const m = u.match(/^https?:\/\/imgur\.com\/([A-Za-z0-9]+)$/i);
-    if (m && m[1]) {
-      return `https://i.imgur.com/${m[1]}.jpg`;
-    }
+    if (m && m[1]) return `https://i.imgur.com/${m[1]}.jpg`;
 
-    // ✅ Caso: ID suelto de Imgur (sin URL)
+    // ✅ Caso: ID suelto
     const n = u.match(/^([A-Za-z0-9]{5,8})$/);
-    if (n && n[1]) {
-      return `https://i.imgur.com/${n[1]}.jpg`;
-    }
+    if (n && n[1]) return `https://i.imgur.com/${n[1]}.jpg`;
 
     // ✅ Caso: Google Drive
     const g = u.match(/https?:\/\/drive\.google\.com\/file\/d\/([^/]+)/i);
-    if (g && g[1]) {
-      return `https://drive.google.com/uc?export=view&id=${g[1]}`;
-    }
+    if (g && g[1]) return `https://drive.google.com/uc?export=view&id=${g[1]}`;
 
     return u;
   });
@@ -79,8 +72,11 @@ function normalizeEstado(r: Json): Vehicle["estado"] {
 
   const raw = String(candidates.find((x) => x != null) ?? "")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[_-]+/g, " "); 
 
+  if (raw.includes("no disponible")) return "NO_DISPONIBLE";
+  if (raw.includes("reservado")) return "RESERVADO";
   if (raw.includes("previa") && raw.includes("cita")) return "PREVIA_CITA";
   if (raw.includes("disponible")) return "DISPONIBLE";
   return "NO_DISPONIBLE";
@@ -106,35 +102,50 @@ export async function fetchInventory(): Promise<Vehicle[]> {
           estado: normalizeEstado(r),
 
           // básicos
+          etiqueta: str(r["etiqueta"] ?? r["Etiqueta"]),
           marca: String(r["marca"] ?? ""),
           modelo: String(r["modelo"] ?? ""),
           version: str(r["version"] ?? r["Versión"]) ?? "",
-          anio: Number(r["anio"] ?? r["year"] ?? 0),
+          anio: Number(r["anio"] ?? r["Año"] ?? r["year"] ?? 0),
+          kilometraje: r["kilometraje"] ?? r["Kilometraje"],
 
           // visibilidad
           vis_precio: toBool(r["vis_precio"] ?? r["Vis. Precio"]),
           vis_duenos: toBool(r["vis_duenos"] ?? r["Vis. Dueños"]),
 
           // opcionales
+          precio: r["precio"] ?? r["Precio"],
           precio_num: num(r["precio_num"] ?? r["Precio"]),
           moneda: str(r["moneda"]),
-          km_num: num(r["km_num"] ?? r["Kilometraje"]),
+          km_num: (() => {
+            const raw = String(
+              r["km_num"] ??
+              r["Kilometraje"] ??
+              r["kilometraje"] ??
+              r["KM"] ??
+              ""
+            ).replace(/[^\d]/g, "");
+            const n = Number(raw);
+            return Number.isFinite(n) ? n : undefined;
+          })(),
           color: str(r["color"]),
           transmision: str(r["transmision"] ?? r["Transmisión"]),
           traccion: str(r["traccion"] ?? r["Tracción"]),
-          carroseria: str(r["carroseria"] ?? r["Carrocería"]),
+          carroceria: str(
+            r["carroceria"] ?? r["Carrocería"] ?? r["Carroceria"] ?? ""
+          ),
           tapiceria: str(r["tapiceria"] ?? r["Tapicería"]),
           motor: str(r["motor"]),
-          aa: boolOrUndef(r["aa"] ?? r["A/A"]),
+          aa: str(r["aa"] ?? r["A/A"]),
           llaves: str(r["llaves"]),
           duenos: (r["duenos"] ?? r["Dueños"]) as string | number | undefined,
           puertas: str(r["puertas"] ?? r["#Puertas"]),
           ubicacion: str(r["ubicacion"]),
           descripcion: str(r["descripcion"] ?? r["Descripción"]),
           imagenes: normalizeImages(r),
-          //(limpieza extra para espacios)
           gerente: str((r["gerente"] ?? r["Gerente"] ?? "").toString().trim()),
           asesor: str((r["asesor"] ?? r["Asesor"] ?? "").toString().trim()),
+          fecha_publicado: str(r["fecha_publicado"] ?? r["Fecha Publicado"]),
         };
 
         return v;

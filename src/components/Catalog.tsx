@@ -5,7 +5,7 @@ import VehicleCard from "@/components/VehicleCard";
 import Paginacion from "@/components/Paginacion";
 import { Vehicle } from "@/types/vehicle";
 
-type Props = { data: Vehicle[]; estado: "DISPONIBLE" | "PREVIA_CITA" };
+type Props = { data: Vehicle[]; estado: "DISPONIBLE" | "PREVIA_CITA" | "RESERVADO"};
 
 export default function Catalog({ data, estado }: Props) {
     const [isDesktop, setIsDesktop] = useState(false);
@@ -19,7 +19,18 @@ export default function Catalog({ data, estado }: Props) {
 
   // 🧠 Normalizar estado (Excel)
   const base = useMemo(() => {
-    return data.filter((v) => (v.estado ?? "").trim().toUpperCase() === estado);
+    const e = (estado ?? "").trim().toUpperCase();
+    return data.filter((v) => {
+      const st = (v.estado ?? "").trim().toUpperCase();
+
+      // 🔹 En la página pública, tratamos "RESERVADO" como "DISPONIBLE"
+      if (e === "DISPONIBLE") {
+        return st === "DISPONIBLE" || st === "RESERVADO";
+      }
+
+      // 🔹 En otras páginas (como PREVIA_CITA o panel interno) se mantiene el filtro estricto
+      return st === e;
+    });
   }, [data, estado]);
 
   // 🔹 Listas únicas
@@ -45,7 +56,7 @@ export default function Catalog({ data, estado }: Props) {
     [base]
   );
   const carrocerias = useMemo(
-    () => Array.from(new Set(base.map((v) => v.carroseria).filter(Boolean))).sort(),
+    () => Array.from(new Set(base.map((v) => v.carroceria).filter(Boolean))).sort(),
     [base]
   );
   const tapicerias = useMemo(
@@ -66,7 +77,7 @@ export default function Catalog({ data, estado }: Props) {
   const [anioMax, setAnioMax] = useState<number>(maxAnioBase);
   const [precioMin, setPrecioMin] = useState<number | "">("");
   const [precioMax, setPrecioMax] = useState<number | "">("");
-  const [carroseria, setCarroseria] = useState<string>("");
+  const [carroceria, setCarroceria] = useState<string>("");
   const [transmision, setTransmision] = useState<string>("");
   const [traccion, setTraccion] = useState<string>("");
   const [tapiceria, setTapiceria] = useState<string>("");
@@ -91,7 +102,7 @@ export default function Catalog({ data, estado }: Props) {
         return false;
       if (precioMax !== "" && (v.precio_num ?? 0) > Number(precioMax))
         return false;
-      if (carroseria && v.carroseria !== carroseria) return false;
+      if (carroceria && v.carroceria !== carroceria) return false;
       if (transmision && v.transmision !== transmision) return false;
       if (traccion && v.traccion !== traccion) return false;
       if (tapiceria && v.tapiceria !== tapiceria) return false;
@@ -106,7 +117,7 @@ export default function Catalog({ data, estado }: Props) {
     anioMax,
     precioMin,
     precioMax,
-    carroseria,
+    carroceria,
     transmision,
     traccion,
     tapiceria,
@@ -282,8 +293,8 @@ export default function Catalog({ data, estado }: Props) {
               <label className="block text-sm text-neutral-400 mb-2">Carrocería</label>
               <select
                 className={inputCls}
-                value={carroseria}
-                onChange={(e) => setCarroseria(e.target.value)}
+                value={carroceria}
+                onChange={(e) => setCarroceria(e.target.value)}
               >
                 <option value="">Todas</option>
                 {carrocerias.map((x) => (
@@ -357,7 +368,7 @@ export default function Catalog({ data, estado }: Props) {
                 setAnioMax(maxAnioBase);
                 setPrecioMin("");
                 setPrecioMax("");
-                setCarroseria("");
+                setCarroceria("");
                 setTransmision("");
                 setTraccion("");
                 setTapiceria("");

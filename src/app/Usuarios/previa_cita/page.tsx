@@ -42,8 +42,8 @@ export default function PreviaCitaPage() {
       <HeaderUsuarios />
 
       <section className="max-w-7xl mx-auto px-4 pt-24 pb-12">
-        <h1 className="text-3xl font-extrabold text-orange-400 mb-8 text-center">
-          Vehículos — Previa Cita (Vista Empleados)
+        <h1 className="text-6xl font-stockport text-orange-400 mb-8 text-center">
+          Vehículos — Previa Cita
         </h1>
 
         {loading ? (

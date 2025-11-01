@@ -29,6 +29,13 @@ export default function UsuariosPage() {
         const res = await fetch("/api/vehiculos");
         const data: Vehicle[] = await res.json();
 
+        if (!Array.isArray(data)) {
+          console.error("⚠️ La respuesta del API no es un array:", data);
+          setVehiculos([]);
+          setLoading(false);
+          return;
+        }
+
         const disponibles = data.filter(
           (v) => v.estado?.toString().toLowerCase() === "disponible"
         );
@@ -147,8 +154,8 @@ export default function UsuariosPage() {
       <HeaderUsuarios />
 
       <section className="max-w-7xl mx-auto px-4 pt-24 pb-12 text-white">
-        <h1 className="text-3xl font-extrabold text-orange-400 mb-8 text-center">
-          Panel de Vehículos — Empleados
+        <h1 className="text-6xl font-stockport text-orange-400 mb-8 text-center">
+          Panel Interno — Disponibles
         </h1>
 
         <Paginacion
