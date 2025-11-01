@@ -14,7 +14,7 @@ function fmtNum(n?: number, suf: string = ""): string {
 }
 
 export default async function VehicleDetail({ params }: any) {
-  const { id } = params;
+  const { id } = await params;
   const data = await fetchInventory();
   const v = data.find((x) => String(x.vehiculo_id) === String(id));
 

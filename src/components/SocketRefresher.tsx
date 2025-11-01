@@ -2,21 +2,20 @@
 import { useEffect } from "react";
 import { io } from "socket.io-client";
 
-/**
- * 🔁 Escucha el evento "actualizarPagina" y recarga el sitio completo.
- * Esto permite que todos los usuarios vean los cambios en tiempo real.
- */
 export default function SocketRefresher() {
   useEffect(() => {
-    // Conexión al servidor de Socket.IO
-    const socket = io();
+    // ✅ Conectarse al servidor socket externo
+    const socket = io("http://localhost:4001", {
+      transports: ["polling"],
+    });
 
-    // Escuchar evento enviado desde /api/emit
+    // 📡 Escuchar el evento de actualización
     socket.on("actualizarPagina", () => {
-      console.log("♻️ Recargando página por actualización remota...");
+      console.log("♻️ Página actualizada automáticamente");
       window.location.reload();
     });
 
+    // 🧹 Cerrar conexión al desmontar
     return () => {
       socket.disconnect();
     };
