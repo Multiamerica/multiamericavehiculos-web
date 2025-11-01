@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import SocketRefresher from "@/components/SocketRefresher"; // 🔁 Cliente que escucha los eventos
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -37,6 +38,9 @@ export default function RootLayout({
           "
         >
           {children}
+
+          {/* 🔁 Recarga automática en tiempo real */}
+          <SocketRefresher />
         </main>
 
         {/* 🔻 Footer */}

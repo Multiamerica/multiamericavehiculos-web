@@ -88,7 +88,7 @@ export default async function VehicleDetail({ params }: any) {
             </h1>
             {showPrecio && (
               <p className="mt-1 text-orange-400 text-2xl font-semibold">
-                {`${v.moneda ?? ""} ${fmtNum(v.precio_num!, "")}`.trim()}
+                {`${v.moneda ?? ""} ${fmtNum(Number(v.precio_num ?? v.precio) || 0, "")}`.trim()}
               </p>
             )}
           </div>

@@ -25,7 +25,7 @@ export type Vehicle = {
   // ===========================
   // ⚙️ Detalles opcionales
   // ===========================
-  precio_num?: number;
+  precio_num?: string | number;
   moneda?: string;
   km_num?: number | null;
   color?: string;

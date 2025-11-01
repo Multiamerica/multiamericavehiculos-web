@@ -142,7 +142,6 @@ export default function VehicleDetailEmpleado() {
   const v = vehiculo;
   const estado = (v.estado || v.publicar || "").toString().toLowerCase().trim();
 
-  const disponible = estado.includes("disponible");
   const estadoTexto = estado.includes("reservado")
     ? "Reservado"
     : estado.includes("disponible")
@@ -151,7 +150,6 @@ export default function VehicleDetailEmpleado() {
     ? "Previa Cita"
     : "No Disponible";
 
-  /** 🎨 Color del recuadro según estado */
   const colorEstado =
     estado.includes("reservado")
       ? "bg-yellow-600 border-yellow-400"
@@ -177,7 +175,7 @@ export default function VehicleDetailEmpleado() {
       </div>
 
       {/* 🧩 Contenido principal */}
-      <div className="grid gap-8 lg:grid-cols-2 items-start max-w-7xl mx-auto px-4 pt-2">
+      <div className="flex flex-col lg:grid lg:grid-cols-2 gap-6 max-w-7xl mx-auto px-3 sm:px-4 pt-2">
         {/* 📸 Galería */}
         <section className="relative">
           <div
@@ -190,7 +188,7 @@ export default function VehicleDetailEmpleado() {
 
         {/* 📋 Información */}
         <div className="space-y-6">
-          <h1 className="text-4xl md:text-3xl font-extrabold text-white leading-tight">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-white leading-tight">
             {v.marca} {v.modelo} {v.version ? `${v.version} ` : ""} {v.anio}
           </h1>
 
@@ -202,6 +200,66 @@ export default function VehicleDetailEmpleado() {
               usuario?.nombreEjecutivo || usuario?.nombre || "Desconocido"
             }
           />
+
+          {/* 💬 Descripción editable */}
+          <div className="p-5 rounded-lg border border-orange-700 bg-black/70">
+            <h2 className="text-xl sm:text-2xl font-semibold text-white mb-3 flex items-center gap-2">
+              📝 Descripción del Vehículo
+            </h2>
+
+            {/* Si el usuario puede editar */}
+            {["ADMIN", "GERENTE", "GERENTE DE GUARDIA", "SUPERVISOR"].includes(
+              rol.toUpperCase()
+            ) ? (
+              <div className="flex flex-col gap-3">
+                <textarea
+                  className="w-full min-h-[150px] bg-black border border-orange-700 rounded-lg text-white p-3 resize-y focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  value={v.descripcion ?? ""}
+                  onChange={(e) => setVehiculo({ ...v, descripcion: e.target.value })}
+                  placeholder="Escribe aquí la descripción del vehículo..."
+                />
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch("/api/vehiculos_editar", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          accion: "actualizarVehiculo",
+                          id:
+                            v.vehiculo_id || v.id || v.ID || v.Id || v["ID"],
+                          data: { Descripción: v.descripcion },
+                          quien:
+                            usuario?.nombreEjecutivo ||
+                            usuario?.nombre ||
+                            "Desconocido",
+                          rango: rol,
+                        }),
+                      });
+
+                      const data = await res.json();
+                      if (!data.ok) {
+                        alert(`⚠️ No se pudo guardar la descripción.`);
+                      } else {
+                        alert("✅ Descripción actualizada correctamente.");
+                      }
+                    } catch (err) {
+                      console.error("⚠️ Error al guardar descripción:", err);
+                      alert("❌ Error al guardar descripción.");
+                    }
+                  }}
+                  className="self-end bg-orange-600 hover:bg-orange-700 text-white font-semibold px-4 py-2 rounded-lg shadow-md transition"
+                >
+                  Guardar Descripción
+                </button>
+              </div>
+            ) : (
+              // Si el usuario no tiene permisos, solo se muestra el texto
+              <p className="text-base leading-relaxed text-white whitespace-pre-wrap">
+                {v.descripcion || "Sin descripción disponible."}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>
