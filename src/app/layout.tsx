@@ -51,6 +51,10 @@ export default function RootLayout({
           <>
             <SpeedInsights />
             <Analytics />
+            {/* 🩹 Fix temporal para imágenes bloqueadas por CanTV */}
+            {process.env.NODE_ENV === "production" && (
+              <script src="/fix-imgur.js" async />
+            )}
           </>
         )}
       </body>
