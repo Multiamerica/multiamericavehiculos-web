@@ -11,6 +11,7 @@ import OfertasCarousel from "@/components/OfertasCarousel";
 export default async function HomePage() {
   // 🔹 Obtener inventario completo desde la API
   const data = await fetchInventory();
+  console.log("📦 Inventario recibido:", data?.length, "vehículos");
 
   // 🔸 Filtrar solo los visibles para clientes
   const visibles = data.filter((v) => {
