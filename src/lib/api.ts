@@ -44,15 +44,19 @@ function normalizeImages(registro: any): string[] {
 }
 
 /** ===========================================================
- * ⚡ Fetch híbrido — Local + Firebase (escritura solo local)
+ * ⚡ Fetch híbrido — Local (principal) + Firebase (solo desarrollo)
  * =========================================================== */
 export async function fetchInventory(): Promise<Vehicle[]> {
   let vehiculos: Vehicle[] = [];
 
   try {
-    // 1️⃣ — Leer inventario local
+    /** 1️⃣ Leer inventario local (desde public/inventory.json) **/
     try {
-      const localUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/inventory.json`;
+      const localUrl =
+        typeof window === "undefined"
+          ? `${process.env.NEXT_PUBLIC_BASE_URL || "https://multiamerica.vercel.app"}/inventory.json`
+          : "/inventory.json";
+
       const localRes = await fetch(localUrl, { cache: "no-store" });
 
       if (localRes.ok) {
@@ -105,7 +109,7 @@ export async function fetchInventory(): Promise<Vehicle[]> {
       console.warn("⚠️ Error leyendo inventario local:", err);
     }
 
-    // 2️⃣ — Actualizar desde Firebase (solo en desarrollo)
+    /** 2️⃣ Intentar actualizar desde Firebase (solo en desarrollo) **/
     try {
       if (!FIREBASE_URL) throw new Error("❌ Falta NEXT_PUBLIC_FIREBASE_URL");
 
@@ -150,15 +154,13 @@ export async function fetchInventory(): Promise<Vehicle[]> {
         fecha_publicado: str(v.fecha_publicado),
       }));
 
-      // 💾 Guardar localmente solo si no es producción
-      if (process.env.VERCEL_ENV !== "production") {
+      // 💾 Guardar localmente solo si estás en desarrollo
+      if (process.env.NODE_ENV === "development") {
         const fs = require("fs");
         const tempFile = `${LOCAL_FILE}.tmp`;
         fs.writeFileSync(tempFile, JSON.stringify({ items: nuevos }, null, 2), "utf-8");
         fs.renameSync(tempFile, LOCAL_FILE);
         console.log(`✅ Archivo ${LOCAL_FILE} actualizado (${nuevos.length} vehículos)`);
-      } else {
-        console.log("⚠️ Producción: no se puede escribir el archivo local (solo lectura).");
       }
 
       console.log(`☁️ Inventario remoto actualizado (${nuevos.length} vehículos)`);
