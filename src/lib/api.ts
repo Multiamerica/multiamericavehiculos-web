@@ -96,6 +96,8 @@ export async function fetchInventory(): Promise<Vehicle[]> {
               imagen: str(v.imagen),
               imagenes: normalizeImages(v),
               fecha_publicado: str(v.fecha_publicado),
+              carroceria: str(v.carroceria || v.carrocería || v.Carrocería),
+              km_num: num(v.kilometraje || v.km || v.km_num),
             }));
             console.log(`⚡ Inventario local cargado (${vehiculos.length} vehículos)`);
           } else {
@@ -152,6 +154,8 @@ export async function fetchInventory(): Promise<Vehicle[]> {
         imagen: str(v.imagen),
         imagenes: normalizeImages(v),
         fecha_publicado: str(v.fecha_publicado),
+        carroceria: str(v.carroceria || v.carrocería || v.Carrocería),
+        km_num: num(v.kilometraje || v.km || v.km_num),
       }));
 
       // 💾 Guardar localmente solo si estás en desarrollo
