@@ -36,9 +36,10 @@ export default function UsuariosPage() {
           return;
         }
 
-        const disponibles = data.filter(
-          (v) => v.estado?.toString().toLowerCase() === "disponible"
-        );
+        const disponibles = data.filter((v) => {
+          const estado = (v.estado ?? "").toString().trim().toUpperCase();
+          return estado === "DISPONIBLE" || estado === "RESERVADO";
+        });
 
         const visibles = disponibles.map((v) => ({
           ...v,

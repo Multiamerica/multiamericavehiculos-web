@@ -15,7 +15,7 @@ export default async function HomePage() {
   // 🔸 Filtrar solo los visibles para clientes
   const visibles = data.filter((v) => {
     const estado = (v.estado ?? "").trim().toUpperCase();
-    return estado === "DISPONIBLE" || "RESERVADO";
+    return estado === "DISPONIBLE" || estado === "RESERVADO";
   });
 
   // 🔸 Renderizar carrusel + catálogo unificado
