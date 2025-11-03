@@ -6,7 +6,6 @@ const io = new Server(4001, {
       "http://localhost:3000",
       "https://multiamericavehiculos.com",
       "https://multiamerica.vercel.app",
-      "http://192.168.1.4:3000",
     ],
     methods: ["GET", "POST"],
   },

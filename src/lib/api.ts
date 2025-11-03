@@ -1,168 +1,163 @@
 import { Vehicle } from "@/types/vehicle";
 import { MOCK } from "@/data/mock";
-import { buildDriveImageUrls } from "@/lib/images";
 
-type Json = Record<string, unknown>;
-type ApiResp = { items?: Json[] };
+const FIREBASE_URL = process.env.NEXT_PUBLIC_FIREBASE_URL;
+const LOCAL_FILE = "public/inventory.json";
 
-// --- Helpers básicos ---
+/** ===================== Utilidades ===================== **/
 function toBool(v: unknown): boolean {
   const s = String(v ?? "").trim().toLowerCase();
   return ["si", "sí", "true", "1"].includes(s);
 }
-
-function num(v: unknown): number | undefined {
-  if (v == null || v === "") return undefined;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : undefined;
+function num(v: unknown): number {
+  const n = Number(String(v || "").replace(/[^\d.-]/g, ""));
+  return Number.isFinite(n) ? n : 0;
 }
-
-function str(v: unknown): string | undefined {
-  const s = String(v ?? "").trim();
-  return s || undefined;
+function str(v: unknown): string {
+  return String(v ?? "").trim();
 }
-
-function boolOrUndef(v: unknown): boolean | undefined {
-  const s = String(v ?? "").trim().toLowerCase();
-  if (!s) return undefined;
-  return ["si", "sí", "true", "1"].includes(s);
+function normalizeEstado(v: any): Vehicle["estado"] {
+  const s = str(v).toLowerCase();
+  if (s.includes("disponible")) return "DISPONIBLE";
+  if (s.includes("previa")) return "PREVIA_CITA";
+  if (s.includes("reservado")) return "RESERVADO";
+  return "NO_DISPONIBLE";
 }
-
-/** 🔍 Normaliza URLs (Imgur o Drive) */
-function normalizeImages(r: Json): string[] {
-  const imgs =
-    (Array.isArray(r["imagenes"]) && (r["imagenes"] as string[])) ||
-    (Array.isArray(r["images"]) && (r["images"] as string[])) ||
-    (Array.isArray(r["imagenes_ids"]) && (r["imagenes_ids"] as string[])) ||
-    [];
-
-  return imgs.map((url) => {
-    if (typeof url !== "string") return "";
-    const u = url.trim();
-
-    // ✅ Caso: Imgur directo
+function normalizeImages(registro: any): string[] {
+  const imgs = Array.isArray(registro.imagenes)
+    ? registro.imagenes
+    : typeof registro.imagenes === "string"
+    ? registro.imagenes.split(/\r?\n/).map((x: string) => x.trim()).filter(Boolean)
+    : [];
+  return imgs.map((u: string) => {
+    if (!u) return "";
     if (u.includes("i.imgur.com")) return u;
-
-    // ✅ Caso: Página de Imgur (imgur.com/<id>)
     const m = u.match(/^https?:\/\/imgur\.com\/([A-Za-z0-9]+)$/i);
     if (m && m[1]) return `https://i.imgur.com/${m[1]}.jpg`;
-
-    // ✅ Caso: ID suelto
-    const n = u.match(/^([A-Za-z0-9]{5,8})$/);
-    if (n && n[1]) return `https://i.imgur.com/${n[1]}.jpg`;
-
-    // ✅ Caso: Google Drive
-    const g = u.match(/https?:\/\/drive\.google\.com\/file\/d\/([^/]+)/i);
-    if (g && g[1]) return `https://drive.google.com/uc?export=view&id=${g[1]}`;
-
     return u;
   });
 }
 
-/** 🧠 Normaliza el estado (Excel → interno) */
-function normalizeEstado(r: Json): Vehicle["estado"] {
-  const candidates = [
-    r["estado"],
-    r["Estado"],
-    r["publicar"],
-    r["Publicar"],
-    r["etiqueta"],
-    r["Etiqueta"],
-  ];
-
-  const raw = String(candidates.find((x) => x != null) ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[_-]+/g, " "); 
-
-  if (raw.includes("no disponible")) return "NO_DISPONIBLE";
-  if (raw.includes("reservado")) return "RESERVADO";
-  if (raw.includes("previa") && raw.includes("cita")) return "PREVIA_CITA";
-  if (raw.includes("disponible")) return "DISPONIBLE";
-  return "NO_DISPONIBLE";
-}
-
-/** 🌐 Fetch principal del inventario */
+/** ===========================================================
+ * ⚡ Fetch híbrido — Firebase + respaldo local + escritura limpia
+ * =========================================================== */
 export async function fetchInventory(): Promise<Vehicle[]> {
-  const url = process.env.NEXT_PUBLIC_API_URL;
-  if (!url) return MOCK;
+  let vehiculos: Vehicle[] = [];
 
   try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    // 1️⃣ — Leer inventario local con validación
+    try {
+      const localUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/inventory.json`;
+      const localRes = await fetch(localUrl);
 
-    // Google Apps Script a veces devuelve texto plano
-    const text = await res.text();
-    const data: ApiResp = JSON.parse(text);
-
-    const items = (data.items ?? [])
-      .map((r: Json) => {
-        const v: Vehicle = {
-          vehiculo_id: String(r["vehiculo_id"] ?? r["id"] ?? ""),
-          estado: normalizeEstado(r),
-
-          // básicos
-          etiqueta: str(r["etiqueta"] ?? r["Etiqueta"]),
-          marca: String(r["marca"] ?? ""),
-          modelo: String(r["modelo"] ?? ""),
-          version: str(r["version"] ?? r["Versión"]) ?? "",
-          anio: Number(r["anio"] ?? r["Año"] ?? r["year"] ?? 0),
-          kilometraje: r["kilometraje"] ?? r["Kilometraje"],
-
-          // visibilidad
-          vis_precio: toBool(r["vis_precio"] ?? r["Vis. Precio"]),
-          vis_duenos: toBool(r["vis_duenos"] ?? r["Vis. Dueños"]),
-
-          // opcionales
-          precio: r["precio"] ?? r["Precio"],
-          precio_num: num(r["precio_num"] ?? r["Precio"]),
-          moneda: str(r["moneda"]),
-          km_num: (() => {
-            const raw = String(
-              r["km_num"] ??
-              r["Kilometraje"] ??
-              r["kilometraje"] ??
-              r["KM"] ??
-              ""
-            ).replace(/[^\d]/g, "");
-            const n = Number(raw);
-            return Number.isFinite(n) ? n : undefined;
-          })(),
-          color: str(r["color"]),
-          transmision: str(r["transmision"] ?? r["Transmisión"]),
-          traccion: str(r["traccion"] ?? r["Tracción"]),
-          carroceria: str(
-            r["carroceria"] ?? r["Carrocería"] ?? r["Carroceria"] ?? ""
-          ),
-          tapiceria: str(r["tapiceria"] ?? r["Tapicería"]),
-          motor: str(r["motor"]),
-          aa: str(r["aa"] ?? r["A/A"]),
-          llaves: str(r["llaves"]),
-          duenos: (r["duenos"] ?? r["Dueños"]) as string | number | undefined,
-          puertas: str(r["puertas"] ?? r["#Puertas"]),
-          ubicacion: str(r["ubicacion"]),
-          descripcion: str(r["descripcion"] ?? r["Descripción"]),
-          imagenes: normalizeImages(r),
-          gerente: str((r["gerente"] ?? r["Gerente"] ?? "").toString().trim()),
-          asesor: str((r["asesor"] ?? r["Asesor"] ?? "").toString().trim()),
-          fecha_publicado: str(r["fecha_publicado"] ?? r["Fecha Publicado"]),
-        };
-
-        return v;
-      })
-      // ✅ Filtra los que sí tienen ID e imágenes
-      .filter((v) => v.vehiculo_id && (v.imagenes?.length ?? 0) > 0);
-
-    if (process.env.NODE_ENV !== "production") {
-      console.log(
-        "📦 Inventario cargado:",
-        items.map((i) => `${i.vehiculo_id} → ${i.estado}`).join(", ")
-      );
+      if (localRes.ok) {
+        const text = await localRes.text();
+        if (text.trim().length > 0) {
+          try {
+            const localData = JSON.parse(text);
+            const items = Array.isArray(localData.items)
+              ? localData.items
+              : localData?.inventario?.items || [];
+            if (items.length) {
+              vehiculos = items.map((v: any) => ({
+                vehiculo_id: str(v.vehiculo_id || v.id),
+                estado: normalizeEstado(v.publicar || v.estado),
+                etiqueta: str(v.etiqueta),
+                marca: str(v.marca),
+                modelo: str(v.modelo),
+                version: str(v.version),
+                anio: str(v.anio),
+                kilometraje: str(v.kilometraje),
+                transmision: str(v.transmision),
+                traccion: str(v.traccion),
+                color: str(v.color),
+                motor: str(v.motor),
+                duenos: str(v.duenos),
+                vis_duenos: toBool(v.vis_duenos),
+                aa: str(v.aa),
+                tapiceria: str(v.tapiceria),
+                llaves: str(v.llaves),
+                puertas: str(v.puertas),
+                descripcion: str(v.descripcion),
+                gerente: str(v.gerente),
+                asesor: str(v.asesor),
+                vis_precio: toBool(v.vis_precio),
+                moneda: str(v.moneda) || "USD",
+                precio_num: num(v.precio_num),
+                imagen: str(v.imagen),
+                imagenes: normalizeImages(v),
+                fecha_publicado: str(v.fecha_publicado),
+              }));
+              console.log(`⚡ Inventario local cargado (${vehiculos.length} vehículos)`);
+            }
+          } catch (jsonErr) {
+            console.warn("⚠️ JSON local dañado, se ignorará:", jsonErr);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("⚠️ No se pudo leer el archivo local:", err);
     }
 
-    return items;
+    // 2️⃣ — Intentar actualizar desde Firebase
+    try {
+      const remoteUrl = `${FIREBASE_URL}inventario.json`;
+      const res = await fetch(remoteUrl, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      const items = Array.isArray(data.items)
+        ? data.items
+        : data?.inventario?.items || [];
+      if (!items.length) throw new Error("Inventario remoto vacío");
+
+      const nuevos: Vehicle[] = items.map((v: any) => ({
+        vehiculo_id: str(v.vehiculo_id || v.id),
+        estado: normalizeEstado(v.publicar || v.estado),
+        etiqueta: str(v.etiqueta),
+        marca: str(v.marca),
+        modelo: str(v.modelo),
+        version: str(v.version),
+        anio: str(v.anio),
+        kilometraje: str(v.kilometraje),
+        transmision: str(v.transmision),
+        traccion: str(v.traccion),
+        color: str(v.color),
+        motor: str(v.motor),
+        duenos: str(v.duenos),
+        vis_duenos: toBool(v.vis_duenos),
+        aa: str(v.aa),
+        tapiceria: str(v.tapiceria),
+        llaves: str(v.llaves),
+        puertas: str(v.puertas),
+        descripcion: str(v.descripcion),
+        gerente: str(v.gerente),
+        asesor: str(v.asesor),
+        vis_precio: toBool(v.vis_precio),
+        moneda: str(v.moneda) || "USD",
+        precio_num: num(v.precio_num),
+        imagen: str(v.imagen),
+        imagenes: normalizeImages(v),
+        fecha_publicado: str(v.fecha_publicado),
+      }));
+
+      // 🧹 3️⃣ — Guardar localmente (con escritura segura)
+      if (typeof window === "undefined") {
+        const fs = require("fs");
+        const tempFile = `${LOCAL_FILE}.tmp`;
+        fs.writeFileSync(tempFile, JSON.stringify({ items: nuevos }, null, 2), "utf-8");
+        fs.renameSync(tempFile, LOCAL_FILE);
+        console.log(`✅ Archivo ${LOCAL_FILE} actualizado (${nuevos.length} vehículos)`);
+      }
+
+      console.log(`☁️ Inventario remoto actualizado (${nuevos.length} vehículos)`);
+      return nuevos;
+    } catch (err) {
+      console.warn("⚠️ Error cargando inventario remoto:", err);
+      return vehiculos.length ? vehiculos : MOCK;
+    }
   } catch (err) {
-    console.error("❌ Error al cargar inventario:", err);
+    console.error("❌ Error general al cargar inventario:", err);
     return MOCK;
   }
 }
