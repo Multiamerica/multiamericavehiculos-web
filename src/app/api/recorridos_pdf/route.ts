@@ -12,11 +12,11 @@ type Row = {
 };
 
 // ======================================================
-// 🧾 PDF — VEHÍCULOS DISPONIBLES (Compacto y Confirmado)
+// 🧾 PDF — VEHÍCULOS DISPONIBLES (autoadaptable por cantidad)
 // ======================================================
 export async function GET() {
   try {
-    // 🌐 Obtener datos desde tu Apps Script
+    // 🌐 Obtener datos desde el Apps Script remoto
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}`, { cache: "no-store" });
     if (!res.ok) throw new Error(`Error al obtener datos (${res.status})`);
 
@@ -42,48 +42,64 @@ export async function GET() {
     const gerentes = Object.keys(porGerente).sort((a, b) => a.localeCompare(b));
 
     // ======================================================
-    // 🧾 Crear PDF en hoja carta (Letter) horizontal
+    // 🧾 Crear PDF (tamaño carta horizontal)
     // ======================================================
     const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
 
-    // === Encabezado corporativo ===
-    pdf.setFillColor(20, 20, 20);
-    pdf.rect(0, 0, pageWidth, 50, "F");
-    pdf.setFillColor(230, 126, 34);
-    pdf.rect(0, 47, pageWidth, 3, "F");
-
-    pdf.setTextColor("#e67e22");
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(16);
-    pdf.text("MULTIAMERICAVEHICULOS, C.A.", 80, 30);
-
-    pdf.setTextColor("#ffffff");
-    pdf.setFontSize(11);
-    pdf.text(`Recorrido — Vehículos Disponibles (${disponibles.length})`, 80, 42);
+    // === Encabezado ===
+    const drawHeader = () => {
+      pdf.setFillColor(20, 20, 20);
+      pdf.rect(0, 0, pageWidth, 50, "F");
+      pdf.setFillColor(230, 126, 34);
+      pdf.rect(0, 47, pageWidth, 3, "F");
+      pdf.setTextColor("#e67e22");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(16);
+      pdf.text("MULTIAMERICAVEHICULOS, C.A.", 80, 30);
+      pdf.setTextColor("#ffffff");
+      pdf.setFontSize(11);
+      pdf.text(`Recorrido — Vehículos Disponibles (${disponibles.length})`, 80, 42);
+    };
+    drawHeader();
 
     // ======================================================
-    // 🗂️ Columnas más compactas
+    // 📐 Configuración de diseño dinámico
     // ======================================================
     const marginX = 30;
     const marginY = 70;
-    const colsPorFila = 9; // más columnas en tamaño carta
-    const colWidth = (pageWidth - marginX * 2) / colsPorFila;
+    const colWidth = 130; // ancho fijo por bloque
     const headerHeight = 16;
     const textSpacing = 9;
+    const maxColsPerPage = Math.floor((pageWidth - marginX * 2) / colWidth);
+
+    let x = marginX;
+    let y = marginY;
+    let maxHeightFila = 0;
 
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(7.5);
 
-    let x = marginX;
-    let y = marginY;
+    // ======================================================
+    // 🧩 Dibujo dinámico de los gerentes
+    // ======================================================
+    for (const g of gerentes) {
+      const lista = porGerente[g] || [];
+      const alturaNecesaria = headerHeight + (lista.length * textSpacing) + 15;
 
-    gerentes.forEach((g, idx) => {
-      // Nueva fila de gerentes
-      if (idx > 0 && idx % colsPorFila === 0) {
-        x = marginX;
-        y += 150;
+      // 🧮 Si no cabe en la hoja → nueva fila o nueva página
+      if (y + alturaNecesaria > pageHeight - 60) {
+        x += colWidth;
+        y = marginY;
+
+        // si se pasa el ancho → nueva página
+        if (x + colWidth > pageWidth - marginX) {
+          pdf.addPage();
+          drawHeader();
+          x = marginX;
+          y = marginY;
+        }
       }
 
       // 🧱 Título del gerente
@@ -92,31 +108,38 @@ export async function GET() {
       pdf.setTextColor("#e67e22");
       pdf.text(g.toUpperCase(), x + 3, y + 11);
 
-      // 🚗 Lista de vehículos
+      // 🚗 Vehículos del gerente
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(6.8);
       pdf.setTextColor("#000");
 
-      const lista = porGerente[g] || [];
       let yVeh = y + headerHeight + 7;
-
       for (const v of lista) {
         const texto = `${v.marca ?? ""} ${v.modelo ?? ""} ${v.anio ?? ""}`.trim();
         pdf.text(texto, x + 3, yVeh);
         yVeh += textSpacing;
-
-        // Saltar a otra columna si no cabe
-        if (yVeh > pageHeight - 50) {
-          x += colWidth;
-          yVeh = y + headerHeight + 7;
-        }
       }
 
-      x += colWidth;
-    });
+      // 🔄 Actualizar posición para el siguiente gerente
+      y = Math.max(y, yVeh + 10);
+      maxHeightFila = Math.max(maxHeightFila, alturaNecesaria);
+
+      // Si se pasa del límite vertical de página → reset fila
+      if (y > pageHeight - 80) {
+        y = marginY;
+        x += colWidth;
+
+        if (x + colWidth > pageWidth - marginX) {
+          pdf.addPage();
+          drawHeader();
+          x = marginX;
+          y = marginY;
+        }
+      }
+    }
 
     // ======================================================
-    // 🕒 Fecha y hora
+    // 🕒 Fecha y pie
     // ======================================================
     const ahora = new Date();
     const fechaHora = ahora.toLocaleString("es-VE", {
@@ -131,7 +154,7 @@ export async function GET() {
     pdf.text("© Multiamericavehiculos-webapp", pageWidth - 180, pageHeight - 12);
 
     // ======================================================
-    // 🧾 Registrar uso del recorrido (con confirmación)
+    // 🧾 Registrar recorrido
     // ======================================================
     let nombreUsuario = "Invitado";
     try {
@@ -153,10 +176,10 @@ export async function GET() {
     }
 
     await registrarRecorrido("Disponibles", nombreUsuario);
-    console.log(`📤 Confirmado: ${nombreUsuario} generó el recorrido de Disponibles`);
+    console.log(`📤 Confirmado: ${nombreUsuario} generó el recorrido adaptativo de Disponibles`);
 
     // ======================================================
-    // 📤 Enviar PDF al navegador
+    // 📤 Enviar PDF
     // ======================================================
     const pdfOutput = pdf.output("arraybuffer");
     return new NextResponse(pdfOutput, {

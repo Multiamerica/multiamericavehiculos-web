@@ -13,7 +13,7 @@ type Row = {
 };
 
 // ======================================================
-// 🧾 PDF — VEHÍCULOS EN PREVIA CITA (Compacto y Confirmado)
+// 🧾 PDF — VEHÍCULOS EN PREVIA CITA (autoadaptativo y legible)
 // ======================================================
 export async function GET() {
   try {
@@ -43,81 +43,100 @@ export async function GET() {
     const gerentes = Object.keys(porGerente).sort((a, b) => a.localeCompare(b));
 
     // ======================================================
-    // 🧾 Crear PDF compacto en hoja carta horizontal
+    // 📄 Crear PDF en hoja carta horizontal
     // ======================================================
     const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
 
-    // === Encabezado corporativo ===
-    pdf.setFillColor(20, 20, 20);
-    pdf.rect(0, 0, pageWidth, 50, "F");
-    pdf.setFillColor(230, 126, 34);
-    pdf.rect(0, 47, pageWidth, 3, "F");
-
-    pdf.setTextColor("#e67e22");
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(16);
-    pdf.text("MULTIAMERICAVEHICULOS, C.A.", 80, 30);
-
-    pdf.setTextColor("#ffffff");
-    pdf.setFontSize(11);
-    pdf.text(`Recorrido — Vehículos en Previa Cita (${previaCita.length})`, 80, 42);
+    // === Encabezado ===
+    const drawHeader = () => {
+      pdf.setFillColor(20, 20, 20);
+      pdf.rect(0, 0, pageWidth, 50, "F");
+      pdf.setFillColor(230, 126, 34);
+      pdf.rect(0, 47, pageWidth, 3, "F");
+      pdf.setTextColor("#e67e22");
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(16);
+      pdf.text("MULTIAMERICAVEHICULOS, C.A.", 80, 30);
+      pdf.setTextColor("#ffffff");
+      pdf.setFontSize(11);
+      pdf.text(`Recorrido — Vehículos en Previa Cita (${previaCita.length})`, 80, 42);
+    };
+    drawHeader();
 
     // ======================================================
-    // 🗂️ Columnas compactas por gerente
+    // 🗂️ Configuración de diseño dinámico
     // ======================================================
     const marginX = 30;
     const marginY = 70;
-    const colsPorFila = 9; // más columnas por fila
-    const colWidth = (pageWidth - marginX * 2) / colsPorFila;
+    const colWidth = 130; // ancho fijo por bloque
     const headerHeight = 16;
     const textSpacing = 9;
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(7.5);
+    const maxColsPerPage = Math.floor((pageWidth - marginX * 2) / colWidth);
 
     let x = marginX;
     let y = marginY;
 
-    gerentes.forEach((g, idx) => {
-      // salto de fila de gerentes
-      if (idx > 0 && idx % colsPorFila === 0) {
-        x = marginX;
-        y += 150;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(7.5);
+
+    // ======================================================
+    // 🧩 Dibujo adaptativo
+    // ======================================================
+    for (const g of gerentes) {
+      const lista = porGerente[g] || [];
+      const alturaNecesaria = headerHeight + lista.length * textSpacing + 15;
+
+      // Si no cabe en la página actual, pasar a la siguiente columna o nueva página
+      if (y + alturaNecesaria > pageHeight - 60) {
+        x += colWidth;
+        y = marginY;
+
+        if (x + colWidth > pageWidth - marginX) {
+          pdf.addPage();
+          drawHeader();
+          x = marginX;
+          y = marginY;
+        }
       }
 
-      // 🧱 Nombre del gerente
+      // 🧱 Título del gerente
       pdf.setDrawColor(230, 126, 34);
       pdf.rect(x, y, colWidth, headerHeight);
       pdf.setTextColor("#e67e22");
       pdf.text(g.toUpperCase(), x + 3, y + 11);
 
-      // 🚗 Vehículos del gerente
+      // 🚗 Lista de vehículos
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(6.8);
       pdf.setTextColor("#000");
 
-      const lista = porGerente[g] || [];
       let yVeh = y + headerHeight + 7;
-
       for (const v of lista) {
         const texto = `${v.marca ?? ""} ${v.modelo ?? ""} ${v.anio ?? ""}`.trim();
         pdf.text(texto, x + 3, yVeh);
         yVeh += textSpacing;
-
-        // si llega al final de la página → nueva columna
-        if (yVeh > pageHeight - 50) {
-          x += colWidth;
-          yVeh = y + headerHeight + 7;
-        }
       }
 
-      x += colWidth;
-    });
+      // Actualizar posición
+      y = Math.max(y, yVeh + 10);
+
+      // Si llegamos al límite vertical → mover a siguiente columna
+      if (y > pageHeight - 80) {
+        y = marginY;
+        x += colWidth;
+        if (x + colWidth > pageWidth - marginX) {
+          pdf.addPage();
+          drawHeader();
+          x = marginX;
+          y = marginY;
+        }
+      }
+    }
 
     // ======================================================
-    // 🕒 Fecha y hora
+    // 🕒 Pie de página
     // ======================================================
     const ahora = new Date();
     const fechaHora = ahora.toLocaleString("es-VE", {
@@ -154,10 +173,10 @@ export async function GET() {
     }
 
     await registrarRecorrido("Previa Cita", nombreUsuario);
-    console.log(`📤 Confirmado: ${nombreUsuario} generó el recorrido de Previa Cita`);
+    console.log(`📤 Confirmado: ${nombreUsuario} generó el recorrido adaptativo de Previa Cita`);
 
     // ======================================================
-    // 📤 Enviar PDF al navegador
+    // 📤 Enviar PDF
     // ======================================================
     const pdfOutput = pdf.output("arraybuffer");
     return new NextResponse(pdfOutput, {
