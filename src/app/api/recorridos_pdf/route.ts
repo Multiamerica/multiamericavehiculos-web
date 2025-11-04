@@ -17,10 +17,11 @@ export async function GET() {
     const data = await res.json();
     const vehiculos: Row[] = Array.isArray(data?.items) ? data.items : [];
 
-    // Filtrar disponibles
-    const disponibles = vehiculos.filter((v) =>
-      String(v?.publicar ?? "").trim().toLowerCase().includes("disponible")
-    );
+    // Filtrar vehículos disponibles o reservados
+    const disponibles = vehiculos.filter((v) => {
+      const estado = String(v?.publicar ?? "").trim().toLowerCase();
+      return estado.includes("disponible") || estado.includes("reservado");
+    });
 
     if (!disponibles.length) throw new Error("No hay vehículos disponibles para mostrar.");
 

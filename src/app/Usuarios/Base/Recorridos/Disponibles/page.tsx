@@ -17,13 +17,14 @@ export default function RecorridosDisponibles() {
 
         const vehiculosArray = Array.isArray(data) ? data : data.items || [];
 
-        // 🔹 Filtrar "DISPONIBLES"
-        const disponibles = vehiculosArray.filter(
-          (v: Vehicle) =>
-            String(v.estado ?? "").trim().toUpperCase() === "DISPONIBLE"
-        );
+        // 🔹 Filtrar "DISPONIBLES" o "RESERVADOS"
+        const visibles = vehiculosArray.filter((v: Vehicle) => {
+          const estado = String(v.estado ?? "").trim().toUpperCase();
+          return estado === "DISPONIBLE" || estado === "RESERVADO";
+        });
 
-        setVehiculos(disponibles);
+        setVehiculos(visibles);
+
       } catch (err) {
         console.error("Error cargando vehículos:", err);
       } finally {
