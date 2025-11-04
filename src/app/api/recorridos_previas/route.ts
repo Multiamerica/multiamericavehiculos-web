@@ -15,12 +15,35 @@ type Row = {
 
 export async function GET() {
   try {
-    // ⚡ Cargar inventario directamente desde el archivo local
-    const vehiculos: Row[] = Array.isArray(inventory?.items)
-      ? inventory.items
-      : Array.isArray(inventory)
-      ? inventory
-      : [];
+    // ⚡ Cargar inventario desde /inventory.json o usar API remota como respaldo
+    let vehiculos: Row[] = [];
+
+    try {
+      const baseUrl =
+        process.env.NEXT_PUBLIC_BASE_URL || "https://multiamerica.vercel.app";
+      const res = await fetch(`${baseUrl}/inventory.json`, { cache: "no-store" });
+
+      if (res.ok) {
+        const data = await res.json();
+        vehiculos = Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data)
+          ? data
+          : [];
+        console.log("✅ Inventario cargado desde /inventory.json");
+      } else {
+        throw new Error("inventory.json no disponible");
+      }
+    } catch (err) {
+      console.warn("⚠️ No se pudo usar inventory.json, usando API remota...");
+      const resApi = await fetch(`${process.env.NEXT_PUBLIC_API_URL}`, {
+        cache: "no-store",
+      });
+      if (resApi.ok) {
+        const data = await resApi.json();
+        vehiculos = Array.isArray(data?.items) ? data.items : [];
+      }
+    }
 
     // ======================================================
     // 🔹 Filtrar "Previa Cita"
