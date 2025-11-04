@@ -12,56 +12,77 @@ type Row = {
   [k: string]: any;
 };
 
+// ======================================================
+// 🧾 PDF — VEHÍCULOS DISPONIBLES (OPTIMIZADO PARA VERCEL)
+// ======================================================
 export async function GET() {
-  try {  
-    // =====================================================
-    // ⚡ Cargar inventario desde el archivo público o fallback a API
-    // =====================================================
+  try {
     let vehiculos: Row[] = [];
 
+    // ======================================================
+    // ⚡ 1️⃣ Intentar usar inventario local (instantáneo)
+    // ======================================================
     try {
-      // 1️⃣ Intentar cargar desde el archivo público en producción
-      const baseUrl =
-        process.env.NEXT_PUBLIC_BASE_URL ||
-        "https://multiamerica.vercel.app";
+      vehiculos = Array.isArray(inventory?.items)
+        ? inventory.items
+        : Array.isArray(inventory)
+        ? inventory
+        : [];
 
-      const res = await fetch(`${baseUrl}/inventory.json`, { cache: "no-store" });
-
-      if (res.ok) {
-        const data = await res.json();
-        vehiculos = Array.isArray(data?.items)
-          ? data.items
-          : Array.isArray(data)
-          ? data
-          : [];
-        console.log("✅ Inventario cargado desde /inventory.json");
-      } else {
-        throw new Error("inventory.json no disponible");
-      }
+      if (!vehiculos.length) throw new Error("Inventario vacío");
+      console.log("✅ Inventario cargado desde import local (sin red)");
     } catch (err) {
-      console.warn("⚠️ No se pudo usar inventory.json, usando API remota...");
-      const resApi = await fetch(`${process.env.NEXT_PUBLIC_API_URL}`, {
-        cache: "no-store",
-      });
-      if (resApi.ok) {
-        const data = await resApi.json();
-        vehiculos = Array.isArray(data?.items) ? data.items : [];
+      console.warn("⚠️ Inventario local no disponible, intentando fetch...");
+
+      // ======================================================
+      // 🌐 2️⃣ Fallback: intentar cargar desde /inventory.json o API
+      // ======================================================
+      try {
+        const baseUrl =
+          process.env.NEXT_PUBLIC_BASE_URL ||
+          "https://multiamerica.vercel.app";
+        const res = await fetch(`${baseUrl}/inventory.json`, {
+          cache: "force-cache",
+          next: { revalidate: 60 },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          vehiculos = Array.isArray(data?.items)
+            ? data.items
+            : Array.isArray(data)
+            ? data
+            : [];
+          console.log("✅ Inventario cargado desde /inventory.json público");
+        } else {
+          throw new Error("inventory.json no disponible");
+        }
+      } catch {
+        console.warn("⚠️ Usando API remota como último recurso...");
+        const resApi = await fetch(`${process.env.NEXT_PUBLIC_API_URL}`, {
+          cache: "no-store",
+        });
+        if (resApi.ok) {
+          const data = await resApi.json();
+          vehiculos = Array.isArray(data?.items) ? data.items : [];
+        }
       }
     }
 
-    // =====================================================
-    // 🚗 Filtrar vehículos "DISPONIBLES" o "RESERVADOS"
-    // =====================================================
+    // ======================================================
+    // 🚗 3️⃣ Filtrar vehículos "DISPONIBLES" o "RESERVADOS"
+    // ======================================================
     const disponibles = vehiculos.filter((v) => {
       const estado = String(v?.publicar ?? "").trim().toLowerCase();
       return estado.includes("disponible") || estado.includes("reservado");
     });
 
-    if (!disponibles.length) throw new Error("No hay vehículos disponibles para mostrar.");
+    if (!disponibles.length)
+      throw new Error("No hay vehículos disponibles para mostrar.");
 
-    // =====================================================
-    // 🧩 Agrupar por gerente
-    // =====================================================
+    // ======================================================
+    // 🧩 4️⃣ Agrupar por gerente
+    // ======================================================
     const porGerente: Record<string, Row[]> = {};
     disponibles.forEach((v) => {
       const gerente = (v.gerente ?? "Sin Gerente").trim();
@@ -70,33 +91,35 @@ export async function GET() {
     });
     const gerentes = Object.keys(porGerente).sort((a, b) => a.localeCompare(b));
 
-    // =====================================================
-    // 🧾 Crear PDF (estilo manual)
-    // =====================================================
-    const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a3" });
+    // ======================================================
+    // 🧾 5️⃣ Crear PDF optimizado (formato A4 para menor peso)
+    // ======================================================
+    const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
 
-    // Encabezado
+    // === Encabezado corporativo ===
     pdf.setFillColor(20, 20, 20);
     pdf.rect(0, 0, pageWidth, 60, "F");
     pdf.setFillColor(230, 126, 34);
     pdf.rect(0, 55, pageWidth, 5, "F");
+
     pdf.setTextColor("#e67e22");
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(20);
     pdf.text("MULTIAMERICAVEHICULOS, C.A.", 90, 35);
+
     pdf.setTextColor("#ffffff");
     pdf.setFontSize(13);
     const totalVehiculos = disponibles.length;
     pdf.text(`Recorrido — Vehículos Disponibles (${totalVehiculos})`, 90, 50);
 
-    // =====================================================
-    // 🗂️ Columnas de gerentes
-    // =====================================================
+    // ======================================================
+    // 🗂️ 6️⃣ Columnas de gerentes
+    // ======================================================
     const marginX = 40;
     const marginY = 90;
-    const colsPorFila = 8;
+    const colsPorFila = 6; // menos columnas → menos carga visual
     const colWidth = (pageWidth - marginX * 2) / colsPorFila;
     const headerHeight = 22;
     const textSpacing = 12;
@@ -125,7 +148,7 @@ export async function GET() {
       const lista = porGerente[g] || [];
       let yVeh = y + headerHeight + 12;
 
-      lista.slice(0, 10).forEach((v) => {
+      lista.slice(0, 8).forEach((v) => {
         const texto = `${v.marca ?? ""} ${v.modelo ?? ""} ${v.anio ?? ""}`.trim();
         pdf.text(texto, x + 5, yVeh);
         yVeh += textSpacing;
@@ -134,9 +157,9 @@ export async function GET() {
       x += colWidth;
     });
 
-    // =====================================================
-    // 🕒 Fecha y hora de impresión
-    // =====================================================
+    // ======================================================
+    // 🕒 7️⃣ Fecha y hora de impresión
+    // ======================================================
     const ahora = new Date();
     const fechaHora = ahora.toLocaleString("es-VE", {
       dateStyle: "short",
@@ -154,9 +177,9 @@ export async function GET() {
       pageHeight - 15
     );
 
-    // =====================================================
-    // 🧾 Registrar uso del recorrido
-    // =====================================================
+    // ======================================================
+    // 🧾 8️⃣ Registrar uso del recorrido
+    // ======================================================
     let nombreUsuario = "Invitado";
     try {
       if (typeof window !== "undefined") {
@@ -178,9 +201,9 @@ export async function GET() {
 
     await registrarRecorrido("Disponibles", nombreUsuario);
 
-    // =====================================================
-    // 📤 Enviar PDF al navegador
-    // =====================================================
+    // ======================================================
+    // 📤 9️⃣ Enviar PDF
+    // ======================================================
     const pdfOutput = pdf.output("arraybuffer");
     return new NextResponse(pdfOutput, {
       headers: {
