@@ -1,10 +1,28 @@
 ﻿"use client";
 
-import Link from "next/link";
 import HeaderUsuarios from "@/components/HeaderUsuarios";
+import { registrarRecorrido } from "@/lib/recorridoLogger";
 import { FaCarSide, FaCalendarCheck } from "react-icons/fa";
 
 export default function RecorridosPage() {
+  // 🧠 Función para obtener el nombre del usuario logueado
+  const obtenerEjecutivo = (): string => {
+    const storedUser = localStorage.getItem("usuario");
+    if (!storedUser) return "Invitado";
+    try {
+      const user = JSON.parse(storedUser);
+      return (
+        user.nombreEjecutivo ||
+        user.nombre ||
+        user.displayName ||
+        user.ejecutivo ||
+        "Invitado"
+      );
+    } catch {
+      return "Invitado";
+    }
+  };
+
   return (
     <>
       <HeaderUsuarios />
@@ -23,14 +41,16 @@ export default function RecorridosPage() {
 
         {/* 🔹 Tarjetas de opciones */}
         <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Vehículos Disponibles */}
-          <Link
-            href="/Usuarios/Base/Recorridos/Disponibles"
-            className="group relative overflow-hidden rounded-2xl bg-neutral-900 border border-orange-700/60 p-8 shadow-lg hover:shadow-orange-900/40 transition-all duration-300"
+          {/* 🚗 Vehículos Disponibles */}
+          <button
+            onClick={async () => {
+              const nombreEjecutivo = obtenerEjecutivo();
+              await registrarRecorrido("Disponibles y Reservados", nombreEjecutivo);
+              window.location.href = "/Usuarios/Base/Recorridos/Disponibles";
+            }}
+            className="group relative overflow-hidden rounded-2xl bg-neutral-900 border border-orange-700/60 p-8 shadow-lg hover:shadow-orange-900/40 transition-all duration-300 text-left"
           >
-            {/* Brillo lateral */}
             <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-orange-500 to-orange-700 opacity-70 group-hover:opacity-100 transition-all" />
-            
             <div className="relative flex flex-col items-start gap-4">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-gradient-to-br from-orange-600 to-orange-500 rounded-xl shadow-inner">
@@ -46,18 +66,19 @@ export default function RecorridosPage() {
                 Permite descargar e imprimir el listado actualizado en tiempo real.
               </p>
             </div>
-
-            {/* Efecto hover */}
             <div className="absolute inset-0 bg-gradient-to-t from-orange-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-all rounded-2xl" />
-          </Link>
+          </button>
 
-          {/* Vehículos en Previa Cita */}
-          <Link
-            href="/Usuarios/Base/Recorridos/Previa_Cita"
-            className="group relative overflow-hidden rounded-2xl bg-neutral-900 border border-orange-700/60 p-8 shadow-lg hover:shadow-orange-900/40 transition-all duration-300"
+          {/* 📅 Vehículos en Previa Cita */}
+          <button
+            onClick={async () => {
+              const nombreEjecutivo = obtenerEjecutivo();
+              await registrarRecorrido("Previa Cita", nombreEjecutivo);
+              window.location.href = "/Usuarios/Base/Recorridos/Previa_Cita";
+            }}
+            className="group relative overflow-hidden rounded-2xl bg-neutral-900 border border-orange-700/60 p-8 shadow-lg hover:shadow-orange-900/40 transition-all duration-300 text-left"
           >
             <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-orange-500 to-orange-700 opacity-70 group-hover:opacity-100 transition-all" />
-
             <div className="relative flex flex-col items-start gap-4">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-gradient-to-br from-orange-600 to-orange-500 rounded-xl shadow-inner">
@@ -73,9 +94,8 @@ export default function RecorridosPage() {
                 Actualizado constantemente con la base de datos principal.
               </p>
             </div>
-
             <div className="absolute inset-0 bg-gradient-to-t from-orange-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-all rounded-2xl" />
-          </Link>
+          </button>
         </div>
 
         {/* Espaciado inferior */}

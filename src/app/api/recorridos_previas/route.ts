@@ -13,16 +13,36 @@ type Row = {
 };
 
 // ======================================================
-// 🧾 PDF — VEHÍCULOS EN PREVIA CITA
+// 🧾 PDF — VEHÍCULOS EN PREVIA CITA (optimizado con inventory.json)
 // ======================================================
 export async function GET() {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`Error al obtener datos (${res.status})`);
-    const data = await res.json();
+    // ======================================================
+    // ⚡ Cargar datos desde /inventory.json (más rápido)
+    // ======================================================
+    let data: any;
+    try {
+      const localUrl =
+        typeof window === "undefined"
+          ? `${process.env.NEXT_PUBLIC_BASE_URL || "https://multiamerica.vercel.app"}/inventory.json`
+          : "/inventory.json";
+
+      const resLocal = await fetch(localUrl, { cache: "no-store" });
+      if (!resLocal.ok) throw new Error("inventory.json no disponible");
+      data = await resLocal.json();
+      console.log("✅ Inventario cargado desde inventory.json");
+    } catch (err) {
+      console.warn("⚠️ No se pudo usar inventory.json, usando API remota...");
+      const resApi = await fetch(`${process.env.NEXT_PUBLIC_API_URL}`, { cache: "no-store" });
+      if (!resApi.ok) throw new Error(`Error al obtener datos (${resApi.status})`);
+      data = await resApi.json();
+    }
+
     const vehiculos: Row[] = Array.isArray(data?.items) ? data.items : [];
 
-    // 🔹 Filtrar los de "Previa Cita"
+    // ======================================================
+    // 🔹 Filtrar "Previa Cita"
+    // ======================================================
     const previaCita = vehiculos.filter((v) => {
       const estado = String(v?.estado ?? v?.publicar ?? "").trim().toLowerCase();
       return estado.includes("previa") || estado.includes("cita");
@@ -30,7 +50,9 @@ export async function GET() {
 
     if (!previaCita.length) throw new Error("No hay vehículos en previa cita para mostrar.");
 
-    // 🔹 Agrupar por gerente
+    // ======================================================
+    // 👨‍💼 Agrupar por gerente
+    // ======================================================
     const porGerente: Record<string, Row[]> = {};
     previaCita.forEach((v) => {
       const gerente = (v.gerente ?? "Sin Gerente").trim();
@@ -40,7 +62,7 @@ export async function GET() {
     const gerentes = Object.keys(porGerente).sort((a, b) => a.localeCompare(b));
 
     // ======================================================
-    // 📄 Crear PDF estilo hoja manual
+    // 🧾 Crear PDF (estilo manual)
     // ======================================================
     const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a3" });
     const pageWidth = pdf.internal.pageSize.getWidth();
@@ -67,7 +89,7 @@ export async function GET() {
     // ======================================================
     const marginX = 40;
     const marginY = 90;
-    const colsPorFila = 8; // máximo 8 columnas por fila
+    const colsPorFila = 8;
     const colWidth = (pageWidth - marginX * 2) / colsPorFila;
     const headerHeight = 22;
     const textSpacing = 12;
@@ -79,19 +101,18 @@ export async function GET() {
     let y = marginY;
 
     gerentes.forEach((g, idx) => {
-      // Nueva fila cada 8 columnas
       if (idx > 0 && idx % colsPorFila === 0) {
         x = marginX;
-        y += 200; // espacio entre bloques de gerentes
+        y += 200;
       }
 
-      // Nombre del gerente
+      // 🧱 Nombre del gerente
       pdf.setDrawColor(230, 126, 34);
       pdf.rect(x, y, colWidth, headerHeight);
       pdf.setTextColor("#e67e22");
       pdf.text(g.toUpperCase(), x + 5, y + 15);
 
-      // Vehículos debajo
+      // 🚗 Vehículos del gerente
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
       pdf.setTextColor("#000");
@@ -108,7 +129,9 @@ export async function GET() {
       x += colWidth;
     });
 
+    // ======================================================
     // 🕒 Fecha y hora de impresión
+    // ======================================================
     const ahora = new Date();
     const fechaHora = ahora.toLocaleString("es-VE", {
       dateStyle: "short",
@@ -116,9 +139,7 @@ export async function GET() {
       hour12: true,
     });
 
-    // ======================================================
     // 📎 Pie de página
-    // ======================================================
     pdf.setFontSize(9);
     pdf.setTextColor("#999");
     pdf.text(`Imp. ${fechaHora}`, 40, pageHeight - 15);
@@ -129,10 +150,8 @@ export async function GET() {
     );
 
     // ======================================================
-    // 📤 Descargar PDF
+    // 🧾 Registrar uso del recorrido en Google Sheets
     // ======================================================
-    const pdfOutput = pdf.output("arraybuffer");
-    // 🔸 Registrar recorrido en la hoja de cálculo
     let nombreUsuario = "Invitado";
     try {
       if (typeof window !== "undefined") {
@@ -158,7 +177,10 @@ export async function GET() {
       console.error("⚠️ No se pudo registrar el recorrido:", e);
     }
 
-    // 📤 Enviar PDF
+    // ======================================================
+    // 📤 Enviar PDF al navegador
+    // ======================================================
+    const pdfOutput = pdf.output("arraybuffer");
     return new NextResponse(pdfOutput, {
       headers: {
         "Content-Type": "application/pdf",

@@ -13,12 +13,32 @@ type Row = {
 
 export async function GET() {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`Error al obtener datos (${res.status})`);
-    const data = await res.json();
+    // =====================================================
+    // 📦 Cargar datos del inventario (preferir /inventory.json)
+    // =====================================================
+    let data: any;
+    try {
+      const localUrl =
+        typeof window === "undefined"
+          ? `${process.env.NEXT_PUBLIC_BASE_URL || "https://multiamerica.vercel.app"}/inventory.json`
+          : "/inventory.json";
+
+      const resLocal = await fetch(localUrl, { cache: "no-store" });
+      if (!resLocal.ok) throw new Error("inventory.json no disponible");
+      data = await resLocal.json();
+      console.log("✅ Inventario cargado desde inventory.json");
+    } catch (err) {
+      console.warn("⚠️ No se pudo usar inventory.json, usando API remota...");
+      const resApi = await fetch(`${process.env.NEXT_PUBLIC_API_URL}`, { cache: "no-store" });
+      if (!resApi.ok) throw new Error(`Error al obtener datos desde API (${resApi.status})`);
+      data = await resApi.json();
+    }
+
     const vehiculos: Row[] = Array.isArray(data?.items) ? data.items : [];
 
-    // Filtrar vehículos disponibles o reservados
+    // =====================================================
+    // 🚗 Filtrar vehículos "DISPONIBLES" o "RESERVADOS"
+    // =====================================================
     const disponibles = vehiculos.filter((v) => {
       const estado = String(v?.publicar ?? "").trim().toLowerCase();
       return estado.includes("disponible") || estado.includes("reservado");
@@ -26,7 +46,9 @@ export async function GET() {
 
     if (!disponibles.length) throw new Error("No hay vehículos disponibles para mostrar.");
 
-    // Agrupar por gerente
+    // =====================================================
+    // 🧩 Agrupar por gerente
+    // =====================================================
     const porGerente: Record<string, Row[]> = {};
     disponibles.forEach((v) => {
       const gerente = (v.gerente ?? "Sin Gerente").trim();
@@ -35,7 +57,9 @@ export async function GET() {
     });
     const gerentes = Object.keys(porGerente).sort((a, b) => a.localeCompare(b));
 
-    // Crear PDF
+    // =====================================================
+    // 🧾 Crear PDF (estilo manual)
+    // =====================================================
     const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a3" });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
@@ -54,10 +78,12 @@ export async function GET() {
     const totalVehiculos = disponibles.length;
     pdf.text(`Recorrido — Vehículos Disponibles (${totalVehiculos})`, 90, 50);
 
-    // Configuración de columnas por fila
+    // =====================================================
+    // 🗂️ Columnas de gerentes
+    // =====================================================
     const marginX = 40;
     const marginY = 90;
-    const colsPorFila = 8; // máximo de columnas por fila
+    const colsPorFila = 8;
     const colWidth = (pageWidth - marginX * 2) / colsPorFila;
     const headerHeight = 22;
     const textSpacing = 12;
@@ -69,19 +95,16 @@ export async function GET() {
     let y = marginY;
 
     gerentes.forEach((g, idx) => {
-      // Nueva fila cada 8 columnas
       if (idx > 0 && idx % colsPorFila === 0) {
         x = marginX;
-        y += 200; // espacio para la siguiente fila
+        y += 200;
       }
 
-      // Nombre del gerente (celda)
       pdf.setDrawColor(230, 126, 34);
       pdf.rect(x, y, colWidth, headerHeight);
       pdf.setTextColor("#e67e22");
       pdf.text(g.toUpperCase(), x + 5, y + 15);
 
-      // Vehículos debajo
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
       pdf.setTextColor("#000");
@@ -98,7 +121,9 @@ export async function GET() {
       x += colWidth;
     });
 
+    // =====================================================
     // 🕒 Fecha y hora de impresión
+    // =====================================================
     const ahora = new Date();
     const fechaHora = ahora.toLocaleString("es-VE", {
       dateStyle: "short",
@@ -116,9 +141,9 @@ export async function GET() {
       pageHeight - 15
     );
 
-    const pdfOutput = pdf.output("arraybuffer");
-
-    // 🔹 Obtener nombre del ejecutivo desde localStorage (si existe en el navegador)
+    // =====================================================
+    // 🧾 Registrar uso del recorrido
+    // =====================================================
     let nombreUsuario = "Invitado";
     try {
       if (typeof window !== "undefined") {
@@ -138,9 +163,12 @@ export async function GET() {
       console.warn("⚠️ No se pudo leer el nombre del usuario:", e);
     }
 
-      await registrarRecorrido("Disponibles", nombreUsuario);
+    await registrarRecorrido("Disponibles", nombreUsuario);
 
-    // 🔹 Enviar PDF como respuesta
+    // =====================================================
+    // 📤 Enviar PDF al navegador
+    // =====================================================
+    const pdfOutput = pdf.output("arraybuffer");
     return new NextResponse(pdfOutput, {
       headers: {
         "Content-Type": "application/pdf",
@@ -149,16 +177,9 @@ export async function GET() {
     });
   } catch (err) {
     console.error("❌ Error generando PDF:", err);
-    return NextResponse.json({ error: "Error generando PDF", details: String(err) }, { status: 500 });
+    return NextResponse.json(
+      { error: "Error generando PDF", details: String(err) },
+      { status: 500 }
+    );
   }
-}
-
-// Helper para logo
-async function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
 }

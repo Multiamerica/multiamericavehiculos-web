@@ -4,6 +4,7 @@ import { Vehicle } from "@/types/vehicle";
 import { useEffect, useState } from "react";
 import HeaderUsuarios from "@/components/HeaderUsuarios";
 import { FaCarSide, FaPrint } from "react-icons/fa";
+import { registrarRecorrido } from "@/lib/recorridoLogger";
 
 export default function RecorridosDisponibles() {
   const [vehiculos, setVehiculos] = useState<Vehicle[]>([]);
@@ -60,9 +61,32 @@ export default function RecorridosDisponibles() {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-orange-500 flex items-center gap-3">
             <FaCarSide className="text-orange-400" /> Recorridos — Disponibles
           </h1>
-
           <button
-            onClick={() => window.open("/api/recorridos_pdf", "_blank")}
+            onClick={async () => {
+              // 🧠 Obtener datos del usuario guardado
+              const storedUser = localStorage.getItem("usuario");
+              let nombreEjecutivo = "Invitado";
+
+              if (storedUser) {
+                try {
+                  const user = JSON.parse(storedUser);
+                  nombreEjecutivo =
+                    user.nombreEjecutivo ||
+                    user.nombre ||
+                    user.displayName ||
+                    user.ejecutivo ||
+                    "Invitado";
+                } catch (err) {
+                  console.warn("⚠️ No se pudo leer el usuario:", err);
+                }
+              }
+
+              // 🧾 Registrar en Google Sheets
+              await registrarRecorrido("Disponibles y Reservados", nombreEjecutivo);
+
+              // 🖨️ Abrir PDF después de registrar
+              window.open("/api/recorridos_pdf", "_blank");
+            }}
             className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 px-4 py-2 rounded-lg font-semibold text-sm sm:text-base transition"
           >
             <FaPrint /> Imprimir / Descargar
