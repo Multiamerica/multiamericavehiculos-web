@@ -58,7 +58,8 @@ export async function GET() {
 
     pdf.setTextColor("#ffffff");
     pdf.setFontSize(13);
-    pdf.text("Recorrido — Vehículos en Previa Cita", 90, 50);
+    const totalVehiculos = previaCita.length;
+    pdf.text(`Recorrido — Vehículos en Previa Cita (${totalVehiculos})`, 90, 50);
 
     // ======================================================
     // 🧩 Dibujar las columnas de gerentes

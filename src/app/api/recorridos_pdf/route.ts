@@ -50,7 +50,8 @@ export async function GET() {
     pdf.text("MULTIAMERICAVEHICULOS, C.A.", 90, 35);
     pdf.setTextColor("#ffffff");
     pdf.setFontSize(13);
-    pdf.text("Recorrido — Vehículos Disponibles", 90, 50);
+    const totalVehiculos = disponibles.length;
+    pdf.text(`Recorrido — Vehículos Disponibles (${totalVehiculos})`, 90, 50);
 
     // Configuración de columnas por fila
     const marginX = 40;
