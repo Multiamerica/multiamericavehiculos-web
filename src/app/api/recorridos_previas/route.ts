@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { jsPDF } from "jspdf";
+import { registrarRecorrido } from "@/lib/recorridoLogger";
 
 type Row = {
   publicar?: string;
@@ -107,11 +108,20 @@ export async function GET() {
       x += colWidth;
     });
 
+    // 🕒 Fecha y hora de impresión
+    const ahora = new Date();
+    const fechaHora = ahora.toLocaleString("es-VE", {
+      dateStyle: "short",
+      timeStyle: "short",
+      hour12: true,
+    });
+
     // ======================================================
     // 📎 Pie de página
     // ======================================================
     pdf.setFontSize(9);
     pdf.setTextColor("#999");
+    pdf.text(`Imp. ${fechaHora}`, 40, pageHeight - 15);
     pdf.text(
       "© Multiamericavehiculos-webapp — Generado automáticamente",
       pageWidth - 300,
@@ -122,6 +132,33 @@ export async function GET() {
     // 📤 Descargar PDF
     // ======================================================
     const pdfOutput = pdf.output("arraybuffer");
+    // 🔸 Registrar recorrido en la hoja de cálculo
+    let nombreUsuario = "Invitado";
+    try {
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("usuario");
+        if (stored) {
+          const u = JSON.parse(stored);
+          nombreUsuario =
+            u?.nombreEjecutivo ||
+            u?.ejecutivo ||
+            u?.nombre ||
+            u?.nombreCompleto ||
+            u?.displayName ||
+            "Invitado";
+        }
+      }
+    } catch (e) {
+      console.warn("⚠️ No se pudo leer el usuario:", e);
+    }
+
+    try {
+      await registrarRecorrido("Previa Cita", nombreUsuario);
+    } catch (e) {
+      console.error("⚠️ No se pudo registrar el recorrido:", e);
+    }
+
+    // 📤 Enviar PDF
     return new NextResponse(pdfOutput, {
       headers: {
         "Content-Type": "application/pdf",
