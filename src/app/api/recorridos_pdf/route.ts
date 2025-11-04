@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { jsPDF } from "jspdf";
+import inventory from "@/../public/inventory.json";
 import { registrarRecorrido } from "@/lib/recorridoLogger";
 
 type Row = {
@@ -12,29 +13,13 @@ type Row = {
 };
 
 export async function GET() {
-  try {
-    // =====================================================
-    // 📦 Cargar datos del inventario (preferir /inventory.json)
-    // =====================================================
-    let data: any;
-    try {
-      const localUrl =
-        typeof window === "undefined"
-          ? `${process.env.NEXT_PUBLIC_BASE_URL || "https://multiamerica.vercel.app"}/inventory.json`
-          : "/inventory.json";
-
-      const resLocal = await fetch(localUrl, { cache: "no-store" });
-      if (!resLocal.ok) throw new Error("inventory.json no disponible");
-      data = await resLocal.json();
-      console.log("✅ Inventario cargado desde inventory.json");
-    } catch (err) {
-      console.warn("⚠️ No se pudo usar inventory.json, usando API remota...");
-      const resApi = await fetch(`${process.env.NEXT_PUBLIC_API_URL}`, { cache: "no-store" });
-      if (!resApi.ok) throw new Error(`Error al obtener datos desde API (${resApi.status})`);
-      data = await resApi.json();
-    }
-
-    const vehiculos: Row[] = Array.isArray(data?.items) ? data.items : [];
+  try {  
+    // ⚡ Cargar inventario directamente desde el archivo local
+    const vehiculos: Row[] = Array.isArray(inventory?.items)
+      ? inventory.items
+      : Array.isArray(inventory)
+      ? inventory
+      : [];
 
     // =====================================================
     // 🚗 Filtrar vehículos "DISPONIBLES" o "RESERVADOS"
