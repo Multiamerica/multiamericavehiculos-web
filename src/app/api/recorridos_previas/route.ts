@@ -13,7 +13,7 @@ type Row = {
 };
 
 // ======================================================
-// 🧾 PDF — VEHÍCULOS EN PREVIA CITA (compacto y legible)
+// 🧾 PDF — VEHÍCULOS EN PREVIA CITA (Compacto y Confirmado)
 // ======================================================
 export async function GET() {
   try {
@@ -42,8 +42,10 @@ export async function GET() {
     });
     const gerentes = Object.keys(porGerente).sort((a, b) => a.localeCompare(b));
 
-    // 🧾 Crear PDF compacto (A4 landscape)
-    const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    // ======================================================
+    // 🧾 Crear PDF compacto en hoja carta horizontal
+    // ======================================================
+    const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
 
@@ -60,22 +62,20 @@ export async function GET() {
 
     pdf.setTextColor("#ffffff");
     pdf.setFontSize(11);
-    pdf.text(
-      `Recorrido — Vehículos en Previa Cita (${previaCita.length})`,
-      80,
-      42
-    );
+    pdf.text(`Recorrido — Vehículos en Previa Cita (${previaCita.length})`, 80, 42);
 
+    // ======================================================
     // 🗂️ Columnas compactas por gerente
+    // ======================================================
     const marginX = 30;
     const marginY = 70;
-    const colsPorFila = 8; // más columnas para caber en una hoja
+    const colsPorFila = 9; // más columnas por fila
     const colWidth = (pageWidth - marginX * 2) / colsPorFila;
-    const headerHeight = 18;
-    const textSpacing = 10;
+    const headerHeight = 16;
+    const textSpacing = 9;
 
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(8);
+    pdf.setFontSize(7.5);
 
     let x = marginX;
     let y = marginY;
@@ -84,33 +84,41 @@ export async function GET() {
       // salto de fila de gerentes
       if (idx > 0 && idx % colsPorFila === 0) {
         x = marginX;
-        y += 160;
+        y += 150;
       }
 
       // 🧱 Nombre del gerente
       pdf.setDrawColor(230, 126, 34);
       pdf.rect(x, y, colWidth, headerHeight);
       pdf.setTextColor("#e67e22");
-      pdf.text(g.toUpperCase(), x + 3, y + 12);
+      pdf.text(g.toUpperCase(), x + 3, y + 11);
 
       // 🚗 Vehículos del gerente
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(7);
+      pdf.setFontSize(6.8);
       pdf.setTextColor("#000");
 
       const lista = porGerente[g] || [];
-      let yVeh = y + headerHeight + 8;
+      let yVeh = y + headerHeight + 7;
 
-      lista.slice(0, 7).forEach((v) => {
+      for (const v of lista) {
         const texto = `${v.marca ?? ""} ${v.modelo ?? ""} ${v.anio ?? ""}`.trim();
         pdf.text(texto, x + 3, yVeh);
         yVeh += textSpacing;
-      });
+
+        // si llega al final de la página → nueva columna
+        if (yVeh > pageHeight - 50) {
+          x += colWidth;
+          yVeh = y + headerHeight + 7;
+        }
+      }
 
       x += colWidth;
     });
 
+    // ======================================================
     // 🕒 Fecha y hora
+    // ======================================================
     const ahora = new Date();
     const fechaHora = ahora.toLocaleString("es-VE", {
       dateStyle: "short",
@@ -118,17 +126,14 @@ export async function GET() {
       hour12: true,
     });
 
-    // 📎 Pie de página
     pdf.setFontSize(8);
     pdf.setTextColor("#999");
     pdf.text(`Imp. ${fechaHora}`, 30, pageHeight - 12);
-    pdf.text(
-      "© Multiamericavehiculos-webapp",
-      pageWidth - 180,
-      pageHeight - 12
-    );
+    pdf.text("© Multiamericavehiculos-webapp", pageWidth - 180, pageHeight - 12);
 
-    // 🧾 Registrar uso del recorrido
+    // ======================================================
+    // 🧾 Registrar uso del recorrido (con confirmación)
+    // ======================================================
     let nombreUsuario = "Invitado";
     try {
       if (typeof window !== "undefined") {
@@ -145,12 +150,15 @@ export async function GET() {
         }
       }
     } catch (e) {
-      console.warn("⚠️ No se pudo leer el nombre del usuario:", e);
+      console.warn("⚠️ No se pudo leer el usuario:", e);
     }
 
     await registrarRecorrido("Previa Cita", nombreUsuario);
+    console.log(`📤 Confirmado: ${nombreUsuario} generó el recorrido de Previa Cita`);
 
-    // 📤 Enviar PDF
+    // ======================================================
+    // 📤 Enviar PDF al navegador
+    // ======================================================
     const pdfOutput = pdf.output("arraybuffer");
     return new NextResponse(pdfOutput, {
       headers: {
