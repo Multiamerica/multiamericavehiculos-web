@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { jsPDF } from "jspdf";
-import inventory from "@/../public/inventory.json";
 import { registrarRecorrido } from "@/lib/recorridoLogger";
 
 type Row = {
@@ -13,64 +12,23 @@ type Row = {
 };
 
 // ======================================================
-// 🧾 PDF — VEHÍCULOS DISPONIBLES (OPTIMIZADO PARA VERCEL)
+// 🧾 PDF — VEHÍCULOS DISPONIBLES (usa solo script remoto)
 // ======================================================
 export async function GET() {
   try {
     let vehiculos: Row[] = [];
 
     // ======================================================
-    // ⚡ 1️⃣ Intentar usar inventario local (instantáneo)
+    // 🌐 Obtener datos desde tu Apps Script (API remota)
     // ======================================================
-    try {
-      vehiculos = Array.isArray(inventory?.items)
-        ? inventory.items
-        : Array.isArray(inventory)
-        ? inventory
-        : [];
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Error al obtener datos (${res.status})`);
 
-      if (!vehiculos.length) throw new Error("Inventario vacío");
-      console.log("✅ Inventario cargado desde import local (sin red)");
-    } catch (err) {
-      console.warn("⚠️ Inventario local no disponible, intentando fetch...");
-
-      // ======================================================
-      // 🌐 2️⃣ Fallback: intentar cargar desde /inventory.json o API
-      // ======================================================
-      try {
-        const baseUrl =
-          process.env.NEXT_PUBLIC_BASE_URL ||
-          "https://multiamerica.vercel.app";
-        const res = await fetch(`${baseUrl}/inventory.json`, {
-          cache: "force-cache",
-          next: { revalidate: 60 },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          vehiculos = Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data)
-            ? data
-            : [];
-          console.log("✅ Inventario cargado desde /inventory.json público");
-        } else {
-          throw new Error("inventory.json no disponible");
-        }
-      } catch {
-        console.warn("⚠️ Usando API remota como último recurso...");
-        const resApi = await fetch(`${process.env.NEXT_PUBLIC_API_URL}`, {
-          cache: "no-store",
-        });
-        if (resApi.ok) {
-          const data = await resApi.json();
-          vehiculos = Array.isArray(data?.items) ? data.items : [];
-        }
-      }
-    }
+    const data = await res.json();
+    vehiculos = Array.isArray(data?.items) ? data.items : [];
 
     // ======================================================
-    // 🚗 3️⃣ Filtrar vehículos "DISPONIBLES" o "RESERVADOS"
+    // 🚗 Filtrar "DISPONIBLES" o "RESERVADOS"
     // ======================================================
     const disponibles = vehiculos.filter((v) => {
       const estado = String(v?.publicar ?? "").trim().toLowerCase();
@@ -81,7 +39,7 @@ export async function GET() {
       throw new Error("No hay vehículos disponibles para mostrar.");
 
     // ======================================================
-    // 🧩 4️⃣ Agrupar por gerente
+    // 👨‍💼 Agrupar por gerente
     // ======================================================
     const porGerente: Record<string, Row[]> = {};
     disponibles.forEach((v) => {
@@ -92,13 +50,13 @@ export async function GET() {
     const gerentes = Object.keys(porGerente).sort((a, b) => a.localeCompare(b));
 
     // ======================================================
-    // 🧾 5️⃣ Crear PDF optimizado (formato A4 para menor peso)
+    // 🧾 Crear PDF (formato A4 optimizado)
     // ======================================================
     const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
 
-    // === Encabezado corporativo ===
+    // Encabezado corporativo
     pdf.setFillColor(20, 20, 20);
     pdf.rect(0, 0, pageWidth, 60, "F");
     pdf.setFillColor(230, 126, 34);
@@ -115,11 +73,11 @@ export async function GET() {
     pdf.text(`Recorrido — Vehículos Disponibles (${totalVehiculos})`, 90, 50);
 
     // ======================================================
-    // 🗂️ 6️⃣ Columnas de gerentes
+    // 🗂️ Columnas por gerente
     // ======================================================
     const marginX = 40;
     const marginY = 90;
-    const colsPorFila = 6; // menos columnas → menos carga visual
+    const colsPorFila = 6;
     const colWidth = (pageWidth - marginX * 2) / colsPorFila;
     const headerHeight = 22;
     const textSpacing = 12;
@@ -158,7 +116,7 @@ export async function GET() {
     });
 
     // ======================================================
-    // 🕒 7️⃣ Fecha y hora de impresión
+    // 🕒 Fecha y hora
     // ======================================================
     const ahora = new Date();
     const fechaHora = ahora.toLocaleString("es-VE", {
@@ -167,7 +125,6 @@ export async function GET() {
       hour12: true,
     });
 
-    // Pie de página
     pdf.setFontSize(9);
     pdf.setTextColor("#999");
     pdf.text(`Imp. ${fechaHora}`, 40, pageHeight - 15);
@@ -178,7 +135,7 @@ export async function GET() {
     );
 
     // ======================================================
-    // 🧾 8️⃣ Registrar uso del recorrido
+    // 🧾 Registrar uso del recorrido en Google Sheets
     // ======================================================
     let nombreUsuario = "Invitado";
     try {
@@ -202,7 +159,7 @@ export async function GET() {
     await registrarRecorrido("Disponibles", nombreUsuario);
 
     // ======================================================
-    // 📤 9️⃣ Enviar PDF
+    // 📤 Enviar PDF al navegador
     // ======================================================
     const pdfOutput = pdf.output("arraybuffer");
     return new NextResponse(pdfOutput, {

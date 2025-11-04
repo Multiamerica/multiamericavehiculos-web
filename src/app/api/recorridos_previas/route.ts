@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { jsPDF } from "jspdf";
-import inventory from "@/../public/inventory.json";
 import { registrarRecorrido } from "@/lib/recorridoLogger";
 
 type Row = {
@@ -14,64 +13,21 @@ type Row = {
 };
 
 // ======================================================
-// 🧾 PDF — VEHÍCULOS EN PREVIA CITA (OPTIMIZADO PARA VERCEL)
+// 🧾 PDF — VEHÍCULOS EN PREVIA CITA (usa solo script remoto)
 // ======================================================
 export async function GET() {
   try {
-    let vehiculos: Row[] = [];
+    // ======================================================
+    // 🌐 Obtener datos directamente desde el Apps Script
+    // ======================================================
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Error al obtener datos (${res.status})`);
+
+    const data = await res.json();
+    const vehiculos: Row[] = Array.isArray(data?.items) ? data.items : [];
 
     // ======================================================
-    // ⚡ 1️⃣ Intentar usar inventario local (instantáneo)
-    // ======================================================
-    try {
-      vehiculos = Array.isArray(inventory?.items)
-        ? inventory.items
-        : Array.isArray(inventory)
-        ? inventory
-        : [];
-
-      if (!vehiculos.length) throw new Error("Inventario vacío");
-      console.log("✅ Inventario cargado desde import local (sin red)");
-    } catch (err) {
-      console.warn("⚠️ Inventario local no disponible, intentando fetch...");
-
-      // ======================================================
-      // 🌐 2️⃣ Fallback: intentar cargar desde /inventory.json o API remota
-      // ======================================================
-      try {
-        const baseUrl =
-          process.env.NEXT_PUBLIC_BASE_URL ||
-          "https://multiamerica.vercel.app";
-        const res = await fetch(`${baseUrl}/inventory.json`, {
-          cache: "force-cache",
-          next: { revalidate: 60 },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          vehiculos = Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data)
-            ? data
-            : [];
-          console.log("✅ Inventario cargado desde /inventory.json público");
-        } else {
-          throw new Error("inventory.json no disponible");
-        }
-      } catch {
-        console.warn("⚠️ Usando API remota como último recurso...");
-        const resApi = await fetch(`${process.env.NEXT_PUBLIC_API_URL}`, {
-          cache: "no-store",
-        });
-        if (resApi.ok) {
-          const data = await resApi.json();
-          vehiculos = Array.isArray(data?.items) ? data.items : [];
-        }
-      }
-    }
-
-    // ======================================================
-    // 🔹 3️⃣ Filtrar "Previa Cita"
+    // 🔹 Filtrar "Previa Cita"
     // ======================================================
     const previaCita = vehiculos.filter((v) => {
       const estado = String(v?.estado ?? v?.publicar ?? "").trim().toLowerCase();
@@ -82,7 +38,7 @@ export async function GET() {
       throw new Error("No hay vehículos en previa cita para mostrar.");
 
     // ======================================================
-    // 👨‍💼 4️⃣ Agrupar por gerente
+    // 👨‍💼 Agrupar por gerente
     // ======================================================
     const porGerente: Record<string, Row[]> = {};
     previaCita.forEach((v) => {
@@ -93,7 +49,7 @@ export async function GET() {
     const gerentes = Object.keys(porGerente).sort((a, b) => a.localeCompare(b));
 
     // ======================================================
-    // 🧾 5️⃣ Crear PDF optimizado (formato A4)
+    // 🧾 Crear PDF optimizado (formato A4)
     // ======================================================
     const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
     const pageWidth = pdf.internal.pageSize.getWidth();
@@ -116,11 +72,11 @@ export async function GET() {
     pdf.text(`Recorrido — Vehículos en Previa Cita (${totalVehiculos})`, 90, 50);
 
     // ======================================================
-    // 🧩 6️⃣ Dibujar las columnas de gerentes
+    // 🧩 Dibujar las columnas de gerentes
     // ======================================================
     const marginX = 40;
     const marginY = 90;
-    const colsPorFila = 6; // Menos columnas → PDF más rápido
+    const colsPorFila = 6;
     const colWidth = (pageWidth - marginX * 2) / colsPorFila;
     const headerHeight = 22;
     const textSpacing = 12;
@@ -161,7 +117,7 @@ export async function GET() {
     });
 
     // ======================================================
-    // 🕒 7️⃣ Fecha y hora de impresión
+    // 🕒 Fecha y hora
     // ======================================================
     const ahora = new Date();
     const fechaHora = ahora.toLocaleString("es-VE", {
@@ -170,7 +126,7 @@ export async function GET() {
       hour12: true,
     });
 
-    // 📎 Pie de página
+    // Pie de página
     pdf.setFontSize(9);
     pdf.setTextColor("#999");
     pdf.text(`Imp. ${fechaHora}`, 40, pageHeight - 15);
@@ -181,7 +137,7 @@ export async function GET() {
     );
 
     // ======================================================
-    // 🧾 8️⃣ Registrar uso del recorrido en Google Sheets
+    // 🧾 Registrar uso del recorrido
     // ======================================================
     let nombreUsuario = "Invitado";
     try {
@@ -205,7 +161,7 @@ export async function GET() {
     await registrarRecorrido("Previa Cita", nombreUsuario);
 
     // ======================================================
-    // 📤 9️⃣ Enviar PDF
+    // 📤 Enviar PDF
     // ======================================================
     const pdfOutput = pdf.output("arraybuffer");
     return new NextResponse(pdfOutput, {

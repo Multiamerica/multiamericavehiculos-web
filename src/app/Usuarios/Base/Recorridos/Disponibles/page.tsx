@@ -82,7 +82,7 @@ export default function RecorridosDisponibles() {
               }
 
               // 🧾 Registrar en Google Sheets
-              await registrarRecorrido("Disponibles", nombreEjecutivo);
+              await registrarRecorrido("Disponibles página", nombreEjecutivo);
 
               // 🖨️ Abrir PDF después de registrar
               window.open("/api/recorridos_pdf", "_blank");
