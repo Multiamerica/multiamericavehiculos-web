@@ -6,19 +6,23 @@ export async function registrarRecorrido(formato: string, ejecutivo: string) {
 
     const res = await fetch(url, { method: "GET", cache: "no-store" });
 
-    // 🔹 Verifica si la respuesta está vacía o no es JSON
+    // 🔹 Leer respuesta como texto para manejar cualquier formato
     const text = await res.text();
     let data: any = {};
+
     try {
       data = JSON.parse(text);
     } catch {
-      console.warn("⚠️ La respuesta no es JSON. Texto recibido:", text);
+      console.warn("⚠️ Respuesta no JSON, texto recibido:", text);
     }
 
+    // 🔹 Validar si la petición fue correcta
     if (!res.ok) {
       console.warn("⚠️ Error registrando recorrido:", data || text);
+    } else if (data?.status === "ok" || data?.result === "success") {
+      console.log(`✅ Recorrido registrado en hoja:`, formato, "por", ejecutivo);
     } else {
-      console.log("✅ Recorrido registrado:", formato, ejecutivo);
+      console.log("✅ Registro completado (sin JSON estándar).");
     }
   } catch (err) {
     console.error("❌ Error en registrarRecorrido:", err);

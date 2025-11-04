@@ -12,24 +12,18 @@ type Row = {
 };
 
 // ======================================================
-// 🧾 PDF — VEHÍCULOS DISPONIBLES (usa solo script remoto)
+// 🧾 PDF — VEHÍCULOS DISPONIBLES (compacto y legible)
 // ======================================================
 export async function GET() {
   try {
-    let vehiculos: Row[] = [];
-
-    // ======================================================
-    // 🌐 Obtener datos desde tu Apps Script (API remota)
-    // ======================================================
+    // 🌐 Obtener datos desde tu Apps Script
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}`, { cache: "no-store" });
     if (!res.ok) throw new Error(`Error al obtener datos (${res.status})`);
 
     const data = await res.json();
-    vehiculos = Array.isArray(data?.items) ? data.items : [];
+    const vehiculos: Row[] = Array.isArray(data?.items) ? data.items : [];
 
-    // ======================================================
     // 🚗 Filtrar "DISPONIBLES" o "RESERVADOS"
-    // ======================================================
     const disponibles = vehiculos.filter((v) => {
       const estado = String(v?.publicar ?? "").trim().toLowerCase();
       return estado.includes("disponible") || estado.includes("reservado");
@@ -38,9 +32,7 @@ export async function GET() {
     if (!disponibles.length)
       throw new Error("No hay vehículos disponibles para mostrar.");
 
-    // ======================================================
     // 👨‍💼 Agrupar por gerente
-    // ======================================================
     const porGerente: Record<string, Row[]> = {};
     disponibles.forEach((v) => {
       const gerente = (v.gerente ?? "Sin Gerente").trim();
@@ -49,41 +41,40 @@ export async function GET() {
     });
     const gerentes = Object.keys(porGerente).sort((a, b) => a.localeCompare(b));
 
-    // ======================================================
-    // 🧾 Crear PDF (formato A4 optimizado)
-    // ======================================================
+    // 🧾 Crear PDF más compacto (A4 landscape)
     const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
 
-    // Encabezado corporativo
+    // === Encabezado corporativo ===
     pdf.setFillColor(20, 20, 20);
-    pdf.rect(0, 0, pageWidth, 60, "F");
+    pdf.rect(0, 0, pageWidth, 50, "F");
     pdf.setFillColor(230, 126, 34);
-    pdf.rect(0, 55, pageWidth, 5, "F");
+    pdf.rect(0, 47, pageWidth, 3, "F");
 
     pdf.setTextColor("#e67e22");
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(20);
-    pdf.text("MULTIAMERICAVEHICULOS, C.A.", 90, 35);
+    pdf.setFontSize(16);
+    pdf.text("MULTIAMERICAVEHICULOS, C.A.", 80, 30);
 
     pdf.setTextColor("#ffffff");
-    pdf.setFontSize(13);
-    const totalVehiculos = disponibles.length;
-    pdf.text(`Recorrido — Vehículos Disponibles (${totalVehiculos})`, 90, 50);
+    pdf.setFontSize(11);
+    pdf.text(
+      `Recorrido — Vehículos Disponibles (${disponibles.length})`,
+      80,
+      42
+    );
 
-    // ======================================================
-    // 🗂️ Columnas por gerente
-    // ======================================================
-    const marginX = 40;
-    const marginY = 90;
-    const colsPorFila = 6;
+    // 🗂️ Columnas compactas por gerente
+    const marginX = 30;
+    const marginY = 70;
+    const colsPorFila = 8; // más columnas para aprovechar espacio
     const colWidth = (pageWidth - marginX * 2) / colsPorFila;
-    const headerHeight = 22;
-    const textSpacing = 12;
+    const headerHeight = 18;
+    const textSpacing = 10;
 
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(9);
+    pdf.setFontSize(8);
 
     let x = marginX;
     let y = marginY;
@@ -91,33 +82,33 @@ export async function GET() {
     gerentes.forEach((g, idx) => {
       if (idx > 0 && idx % colsPorFila === 0) {
         x = marginX;
-        y += 200;
+        y += 160; // menor separación entre bloques
       }
 
+      // 🧱 Nombre del gerente
       pdf.setDrawColor(230, 126, 34);
       pdf.rect(x, y, colWidth, headerHeight);
       pdf.setTextColor("#e67e22");
-      pdf.text(g.toUpperCase(), x + 5, y + 15);
+      pdf.text(g.toUpperCase(), x + 3, y + 12);
 
+      // 🚗 Vehículos del gerente
       pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9);
+      pdf.setFontSize(7);
       pdf.setTextColor("#000");
 
       const lista = porGerente[g] || [];
-      let yVeh = y + headerHeight + 12;
+      let yVeh = y + headerHeight + 8;
 
-      lista.slice(0, 8).forEach((v) => {
+      lista.slice(0, 7).forEach((v) => {
         const texto = `${v.marca ?? ""} ${v.modelo ?? ""} ${v.anio ?? ""}`.trim();
-        pdf.text(texto, x + 5, yVeh);
+        pdf.text(texto, x + 3, yVeh);
         yVeh += textSpacing;
       });
 
       x += colWidth;
     });
 
-    // ======================================================
-    // 🕒 Fecha y hora
-    // ======================================================
+    // 🕒 Fecha y hora (abajo)
     const ahora = new Date();
     const fechaHora = ahora.toLocaleString("es-VE", {
       dateStyle: "short",
@@ -125,18 +116,16 @@ export async function GET() {
       hour12: true,
     });
 
-    pdf.setFontSize(9);
+    pdf.setFontSize(8);
     pdf.setTextColor("#999");
-    pdf.text(`Imp. ${fechaHora}`, 40, pageHeight - 15);
+    pdf.text(`Imp. ${fechaHora}`, 30, pageHeight - 12);
     pdf.text(
-      "© Multiamericavehiculos-webapp — Generado automáticamente",
-      pageWidth - 300,
-      pageHeight - 15
+      "© Multiamericavehiculos-webapp",
+      pageWidth - 180,
+      pageHeight - 12
     );
 
-    // ======================================================
-    // 🧾 Registrar uso del recorrido en Google Sheets
-    // ======================================================
+    // 🧾 Registrar recorrido en Sheets
     let nombreUsuario = "Invitado";
     try {
       if (typeof window !== "undefined") {
@@ -158,9 +147,7 @@ export async function GET() {
 
     await registrarRecorrido("Disponibles", nombreUsuario);
 
-    // ======================================================
-    // 📤 Enviar PDF al navegador
-    // ======================================================
+    // 📤 Enviar PDF
     const pdfOutput = pdf.output("arraybuffer");
     return new NextResponse(pdfOutput, {
       headers: {
